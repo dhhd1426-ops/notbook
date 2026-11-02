@@ -1,0 +1,672 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>笔记卷轴</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one app canvas — 3D notebook rail on top, detail panel for the active notebook below. Light by default, dark follows the system or the toggle. */
+:root{
+  --bg:#ffffff; --surface:#f4f6f5; --surface-2:#e9edeb; --line:rgba(16,24,20,.08);
+  --fg:#121714; --muted:#6b756f; --tint:color-mix(in srgb,var(--a) 14%,#fff); --tint-fg:var(--deep); --dot:rgba(16,24,20,.06); --floor:rgba(40,60,50,.20); --scrim:rgba(18,28,22,.28); --err:#b4532a;
+  --gb1:.72; --gb2:.34; --gf1:.82; --gf2:.58; --gf3:.46; --edge1:rgba(255,255,255,.95); --edge2:rgba(255,255,255,.45); --fshadow:rgba(40,60,50,.22); --gcover:linear-gradient(160deg,rgba(255,255,255,.86),rgba(244,248,246,.74) 55%,rgba(232,240,236,.72)); --gback:rgba(240,245,242,.7); --gside:linear-gradient(90deg,rgba(255,255,255,.95),rgba(214,232,222,.85) 50%,rgba(255,255,255,.9)); --gpages:linear-gradient(90deg,rgba(255,255,255,.95),rgba(226,238,231,.9)); --gtop:linear-gradient(180deg,#fff,rgba(232,242,236,.95)); --gbot:rgba(196,214,204,.9); --gglow:rgba(255,255,255,.8); --gside-on:linear-gradient(90deg,var(--s1),var(--sm) 55%,var(--s2)); --ghost:rgba(60,80,70,.10); --ghost-strong:rgba(30,40,35,.30); --ghost-accent:color-mix(in srgb,var(--a) 22%,transparent); --ghost-text:rgba(30,40,35,.55); --glass:rgba(255,255,255,.52); --glass-2:rgba(255,255,255,.62); --glass-row:rgba(255,255,255,.55); --glass-hi:rgba(255,255,255,.75); --glass-green:color-mix(in srgb,var(--a) 78%,transparent); --glow1:color-mix(in srgb,var(--s1) 35%,transparent); --glow2:color-mix(in srgb,var(--s2) 22%,transparent); --stage:#dfe6e2; --stage-hi:#eef2ef; --green:var(--a); --green-hi:var(--s1); --green-deep:var(--deep);
+  --display:"Urbanist","Noto Sans SC","PingFang SC","Microsoft YaHei", system-ui, sans-serif;
+  --mono:"IBM Plex Mono","Noto Sans SC", ui-monospace, Menlo, monospace;
+
+  /* accent system: one base colour (--a) drives every coloured surface; gradient schemes override the surface stops */
+  --a:#2aa955; --ink:#fff; --on:#fff;
+  --s1:color-mix(in srgb,var(--a) 72%,#fff); --sm:var(--a); --s2:color-mix(in srgb,var(--a) 76%,#000);
+  --deep:color-mix(in srgb,var(--a) 70%,#000);
+  --pg1:#f4f6f5; --pg2:#dde2df;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --bg:#0d100f; --surface:#171b19; --surface-2:#1f2421; --line:rgba(255,255,255,.08); --fg:#e8edea; --muted:#8a948f; --tint:color-mix(in srgb,var(--s1) 16%,transparent); --tint-fg:var(--s1); --stage:#101412; --stage-hi:#212824; --dot:rgba(255,255,255,.05); --floor:rgba(0,0,0,.6); --scrim:rgba(0,0,0,.6); --err:#f0a07c; --gb1:.30; --gb2:.10; --gf1:.62; --gf2:.34; --gf3:.20; --edge1:rgba(255,255,255,.6); --edge2:rgba(255,255,255,.14); --fshadow:rgba(0,0,0,.6); --gcover:linear-gradient(160deg,rgba(255,255,255,.30),rgba(220,235,228,.18) 55%,rgba(200,220,210,.14)); --gback:rgba(200,215,207,.10); --gside:linear-gradient(90deg,rgba(255,255,255,.45),rgba(190,215,202,.22) 50%,rgba(255,255,255,.38)); --gpages:linear-gradient(90deg,rgba(255,255,255,.5),rgba(200,220,210,.3)); --gtop:linear-gradient(180deg,rgba(255,255,255,.6),rgba(220,235,228,.3)); --gbot:rgba(120,140,130,.25); --gglow:rgba(255,255,255,.18); --gside-on:linear-gradient(90deg,var(--s1),var(--sm) 55%,var(--s2)); --ghost:rgba(255,255,255,.12); --ghost-strong:rgba(255,255,255,.35); --ghost-accent:color-mix(in srgb,var(--s1) 25%,transparent); --ghost-text:rgba(255,255,255,.6); --glass:rgba(34,41,37,.48); --glass-2:rgba(40,48,44,.62); --glass-row:rgba(255,255,255,.06); --glass-hi:rgba(255,255,255,.10); --glass-green:color-mix(in srgb,var(--s2) 70%,transparent); --glow1:color-mix(in srgb,var(--a) 28%,transparent); --glow2:color-mix(in srgb,var(--s2) 18%,transparent); --pg1:#151917; --pg2:#0a0d0c; --deep:color-mix(in srgb,var(--a) 55%,#fff); color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0d100f; --surface:#171b19; --surface-2:#1f2421; --line:rgba(255,255,255,.08); --fg:#e8edea; --muted:#8a948f; --tint:color-mix(in srgb,var(--s1) 16%,transparent); --tint-fg:var(--s1); --stage:#101412; --stage-hi:#212824; --dot:rgba(255,255,255,.05); --floor:rgba(0,0,0,.6); --scrim:rgba(0,0,0,.6); --err:#f0a07c; --gb1:.30; --gb2:.10; --gf1:.62; --gf2:.34; --gf3:.20; --edge1:rgba(255,255,255,.6); --edge2:rgba(255,255,255,.14); --fshadow:rgba(0,0,0,.6); --gcover:linear-gradient(160deg,rgba(255,255,255,.30),rgba(220,235,228,.18) 55%,rgba(200,220,210,.14)); --gback:rgba(200,215,207,.10); --gside:linear-gradient(90deg,rgba(255,255,255,.45),rgba(190,215,202,.22) 50%,rgba(255,255,255,.38)); --gpages:linear-gradient(90deg,rgba(255,255,255,.5),rgba(200,220,210,.3)); --gtop:linear-gradient(180deg,rgba(255,255,255,.6),rgba(220,235,228,.3)); --gbot:rgba(120,140,130,.25); --gglow:rgba(255,255,255,.18); --gside-on:linear-gradient(90deg,var(--s1),var(--sm) 55%,var(--s2)); --ghost:rgba(255,255,255,.12); --ghost-strong:rgba(255,255,255,.35); --ghost-accent:color-mix(in srgb,var(--s1) 25%,transparent); --ghost-text:rgba(255,255,255,.6); --glass:rgba(34,41,37,.48); --glass-2:rgba(40,48,44,.62); --glass-row:rgba(255,255,255,.06); --glass-hi:rgba(255,255,255,.10); --glass-green:color-mix(in srgb,var(--s2) 70%,transparent); --glow1:color-mix(in srgb,var(--a) 28%,transparent); --glow2:color-mix(in srgb,var(--s2) 18%,transparent); --pg1:#151917; --pg2:#0a0d0c; --deep:color-mix(in srgb,var(--a) 55%,#fff); color-scheme:dark }
+#gBack stop:nth-child(1){stop-opacity:var(--gb1)} #gBack stop:nth-child(2){stop-opacity:var(--gb2)}
+#gFront stop:nth-child(1){stop-opacity:var(--gf1)} #gFront stop:nth-child(2){stop-opacity:var(--gf2)} #gFront stop:nth-child(3){stop-opacity:var(--gf3)}
+html{overflow-x:clip}
+body{min-height:100vh}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;background:radial-gradient(40% 30% at 18% 88%,var(--glow1),transparent 70%),radial-gradient(38% 28% at 85% 80%,var(--glow2),transparent 70%),linear-gradient(170deg,var(--pg1),var(--pg2)) var(--pg2);transition:background-color .4s;min-height:100%;color:var(--fg);font-family:var(--display);overflow-x:hidden;
+  }
+.app{max-width:1360px;margin:0 auto;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:18px}
+.top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.booklabel{display:inline-flex;align-items:center;gap:8px;height:40px;font:600 16px var(--display);color:var(--fg);white-space:nowrap}
+.booklabel svg{width:18px;height:18px;opacity:.75}
+.booklabel #bookCount{color:var(--muted);font:500 14px var(--mono)}
+.navbtn.add{background:var(--a);color:var(--on)}
+.navbtn.add:hover{background:var(--green-deep)}
+.pill{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;
+  background:var(--surface);border:0;color:var(--fg);font:500 13px var(--display)}
+.pill svg{width:15px;height:15px;opacity:.8}
+.spacer{flex:1}
+.pill,.counter{white-space:nowrap}
+@media (max-width:440px){.pill.tags{display:none}}
+.counter{font:500 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.counter b{color:var(--fg);font-weight:500}
+.navbtn{width:36px;height:36px;border-radius:50%;border:0;background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 var(--glass-hi);color:var(--fg);
+  display:grid;place-items:center;cursor:pointer;transition:background .2s}
+.navbtn:hover{background:var(--glass-2)}
+.navbtn:disabled{opacity:.35;cursor:default}
+.navbtn:disabled:hover{background:var(--surface)}
+.folder:not(.active):hover{cursor:pointer}
+.navbtn:focus-visible,.stage:focus-visible{outline:2px solid var(--green-hi);outline-offset:3px}
+
+/* ---------- stage ---------- */
+.stage{--rail:48%;position:relative;height:max(calc(330px * var(--s,1)),62vh);border-radius:28px;background:transparent;touch-action:pan-y;cursor:grab;
+  user-select:none;-webkit-user-select:none;outline:none;overflow:visible}
+.stage.dragging{cursor:grabbing}
+.rail{position:absolute;left:50%;top:var(--rail);width:0;height:0}
+/* folders are laid out at their real on-screen size (zoom, not an upscale), so they rasterize sharp without extra GPU memory */
+.track{position:absolute;left:0;top:0;zoom:var(--s,1);perspective:760px;perspective-origin:50% -40%}
+.contact{position:absolute;left:50%;top:calc(var(--rail) + 92px * var(--s,1));width:calc(180px * var(--s,1));height:calc(22px * var(--s,1));transform:translateX(-50%);
+  background:radial-gradient(50% 50% at 50% 50%,var(--floor),transparent 72%);pointer-events:none;transition:opacity .3s}
+.floor{position:absolute;left:50%;top:calc(var(--rail) + 100px * var(--s,1));width:90%;height:60px;transform:translateX(-50%);
+  background:radial-gradient(50% 50% at 50% 50%,var(--floor),transparent 70%);pointer-events:none}
+/* glass book: a 140×196 slab (A5-ish proportion), 9px thick, every face drawn so it reads as a solid block of frosted glass */
+.folder{--gside-on:linear-gradient(90deg,var(--s1),var(--sm) 55%,var(--s2));--D:9px;position:absolute;width:140px;height:196px;left:-70px;top:-98px;transform-style:preserve-3d;transform-origin:50% 100%;cursor:pointer}
+.folder>*{position:absolute;left:0;top:0}
+.gf{border-radius:5px}
+.gf:not(.front)::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--gside-on);opacity:var(--g,0)}
+.f-back{width:140px;height:196px;transform:translateZ(calc(var(--D) / -2)) rotateY(180deg);background:var(--gback);box-shadow:inset 0 0 22px var(--gglow)}
+.folder.lite .s-l,.folder.lite .s-r,.folder.lite .s-t,.folder.lite .paper{display:none}
+.s-l,.s-r{top:4px;width:var(--D);height:188px;background:var(--gside)}
+.s-l{left:calc(var(--D) / -2);transform:rotateY(-90deg)}
+.s-r{left:calc(140px - var(--D) / 2);transform:rotateY(90deg);background:var(--gpages)}
+.s-t,.s-b{left:4px;width:132px;height:var(--D)}
+.s-t{top:calc(var(--D) / -2);transform:rotateX(90deg);background:var(--gtop)}
+.s-b{top:calc(196px - var(--D) / 2);transform:rotateX(-90deg);background:var(--gbot)}
+.s-r::after{background:var(--gside-on)}
+/* pages live inside the book; only the part that sticks out above the top edge is drawn (clip tracks the slide exactly), so they never show through the frosted cover */
+.paper{--ty:0px;left:10px;top:0;width:120px;height:176px;border-radius:4px;transform:translateZ(0) translateY(var(--ty));clip-path:inset(0 0 calc(176px + var(--ty)) 0);
+  visibility:hidden;transition:transform .55s cubic-bezier(.2,.8,.2,1),clip-path .55s cubic-bezier(.2,.8,.2,1),visibility 0s .55s;
+  background:
+    linear-gradient(#26302b,#26302b) 12px 14px/52px 6px no-repeat,
+    linear-gradient(color-mix(in srgb,var(--a) 30%,transparent),color-mix(in srgb,var(--a) 30%,transparent)) 12px 27px/64px 8px no-repeat,
+    repeating-linear-gradient(#cfd6d1 0 2px,transparent 2px 11px) 12px 48px/96px 110px no-repeat,
+    #fbfbf8}
+/* front cover: frosted, so what's inside shows only as soft blurred shapes */
+.front{width:140px;height:196px;transform-origin:0 50%;transform:translateZ(calc(var(--D) / 2));transition:transform .7s cubic-bezier(.2,.8,.2,1);
+  background:var(--gcover);box-shadow:inset 0 0 18px var(--gglow);overflow:hidden}
+.front .frost{position:absolute;inset:0;border-radius:inherit;
+  background:
+    radial-gradient(60px 7px at 46px 26px,var(--ghost-strong),transparent 70%),
+    radial-gradient(70px 8px at 50px 42px,var(--ghost-accent),transparent 70%),
+    repeating-linear-gradient(transparent 0 4px,var(--ghost) 6px 7px,transparent 9px 13px) 14px 62px/106px 70px no-repeat}
+.front .ghost{position:absolute;left:14px;right:14px;top:18px;font:700 12px/1.4 var(--display);color:transparent;text-shadow:0 0 5px var(--ghost-text);white-space:nowrap;overflow:hidden;text-overflow:clip}
+.front .ghost+.frost{background:repeating-linear-gradient(transparent 0 4px,var(--ghost) 6px 7px,transparent 9px 13px) 14px 62px/106px 70px no-repeat,radial-gradient(70px 8px at 50px 44px,var(--ghost-accent),transparent 70%)}
+.front .sheen{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(125deg,rgba(255,255,255,.55),rgba(255,255,255,0) 38%)}
+.front .g-fill{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(160deg,var(--s1),var(--sm) 50%,var(--s2));opacity:calc(var(--g,0) * .9)}
+.flabel{position:absolute;left:14px;right:44px;bottom:14px;font:600 14px var(--display);letter-spacing:.1px;color:rgba(18,24,21,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:var(--lo,1)}
+.fcount{position:absolute;right:14px;bottom:15px;font:500 10px var(--mono);color:rgba(18,24,21,.5);opacity:var(--lo,1)}
+.folder.active .flabel{font-size:15px;color:var(--ink)}
+.folder.active .fcount{color:color-mix(in srgb,var(--ink) 70%,transparent)}
+.folder.active .fcount{color:color-mix(in srgb,var(--ink) 75%,transparent)}
+.folder.active .ghost{text-shadow:0 0 5px rgba(255,255,255,.75)}
+.paper.p2{left:18px;width:112px;transform:translateZ(-1.5px) translateY(var(--ty));filter:brightness(.95)}
+.folder.open .paper,.folder.drop .paper{visibility:visible;transition-delay:0s}
+.folder.open .paper.p1{--ty:-62px}
+.folder.open .paper.p2{--ty:-44px}
+.folder.drop .paper.p1{animation:dropin .9s cubic-bezier(.2,.8,.2,1)}
+@keyframes dropin{0%{transform:translateZ(0) translateY(-110px);clip-path:inset(0 0 66px 0);opacity:0}35%{opacity:1}100%{transform:translateZ(0) translateY(0);clip-path:inset(0 0 176px 0)}}
+
+
+/* reader: the selected book grows into this panel, same green frosted glass as the book */
+.reader{position:fixed;inset:0;z-index:1500;display:flex;background:transparent}
+.reader[hidden]{display:none}
+.rpanel{position:relative;width:100%;height:100%;border-radius:0;transform-origin:0 0;color:var(--ink);
+  background:linear-gradient(160deg,var(--s1),var(--sm) 50%,var(--s2));
+  -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+  box-shadow:inset 0 0 50px rgba(255,255,255,.2);
+  display:flex;flex-direction:column;overflow:hidden;will-change:transform}
+.rpanel::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(125deg,rgba(255,255,255,.35),rgba(255,255,255,0) 32%)}
+.rhead{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;
+  padding:calc(22px + env(safe-area-inset-top,0px)) max(22px,env(safe-area-inset-right,0px)) 14px max(22px,env(safe-area-inset-left,0px))}
+.rhead h2{margin:0;font:700 24px/1.2 var(--display);text-wrap:balance;min-width:0;flex:1}
+.rhead h2 small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:500 12px var(--mono);color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:6px}
+.rbtn{flex:none;height:40px;min-width:40px;padding:0 14px;border:0;border-radius:999px;background:rgba(255,255,255,.22);color:var(--ink);font:600 14px var(--display);
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:background .2s}
+.rbtn:hover{background:rgba(255,255,255,.3)}
+.rbtn.solid{background:#fff;color:var(--deep)}
+.rbtn.solid:hover{background:color-mix(in srgb,var(--a) 8%,#fff)}
+.rbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.rbody{position:relative;flex:1;overflow-y:auto;width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;
+  padding:0 max(22px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(22px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.rpanel .rhead,.rpanel .rbody{opacity:0;transition:opacity .25s}
+.reader.in .rpanel .rhead,.reader.in .rpanel .rbody{opacity:1;transition:opacity .3s .28s}
+.rnote{padding:16px 18px;border-radius:16px;background:rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+.rnote:first-child{background:rgba(255,255,255,.22)}
+.rnote h3{margin:0;font:700 17px/1.35 var(--display)}
+.rnote .meta{font:500 11px var(--mono);color:color-mix(in srgb,var(--ink) 70%,transparent);margin-top:4px}
+.rnote p{margin:10px 0 0;font-size:15px;line-height:1.75;color:color-mix(in srgb,var(--ink) 92%,transparent);white-space:pre-wrap;word-break:break-word;max-width:62ch}
+.rempty{padding:28px 18px;border-radius:16px;background:rgba(255,255,255,.12);text-align:center;font-size:15px;line-height:1.7;color:var(--ink)}
+.folder.reading{visibility:hidden!important}
+
+/* colour-scheme picker */
+.navbtn.palbtn i{width:18px;height:18px;border-radius:50%;background:var(--pal-chip,var(--a));box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+.pal-bg{position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim);
+  padding:0 max(0px,env(safe-area-inset-right,0px)) 0 max(0px,env(safe-area-inset-left,0px));animation:fade .25s ease}
+.pal-bg[hidden]{display:none}
+.pal{width:min(760px,100%);max-height:86vh;display:flex;flex-direction:column;border-radius:28px 28px 0 0;background:var(--glass-2);
+  -webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%);box-shadow:inset 0 1px 0 var(--glass-hi);animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+.pal-head{display:flex;align-items:center;gap:12px;padding:20px max(20px,env(safe-area-inset-right,0px)) 10px 20px}
+.pal-head h2{margin:0;font:700 20px var(--display);flex:1}
+.pal-head .done{height:38px;padding:0 18px;border:0;border-radius:999px;background:var(--a);color:var(--on);font:600 14px var(--display);cursor:pointer}
+.pal-body{overflow-y:auto;padding:4px 20px calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px}
+.pal-sec h3{margin:0 0 10px;font:600 13px var(--display);color:var(--muted);letter-spacing:.3px}
+.pal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+.pal-grid.grad{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.sw{position:relative;border:0;padding:6px;border-radius:18px;background:#fff;cursor:pointer;text-align:left;font-family:var(--display);color:#1c2420;
+  box-shadow:0 10px 24px -16px rgba(0,0,0,.35);transition:transform .2s}
+.sw:hover{transform:translateY(-2px)}
+.sw:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--fg),0 10px 24px -16px rgba(0,0,0,.35)}
+.sw .blk{height:82px;border-radius:13px;padding:10px 11px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;gap:2px}
+.sw .blk b{font:700 15px var(--display);color:var(--t)}
+.sw .blk small{font:500 9px var(--display);letter-spacing:.6px;color:var(--t);opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw .hex{display:flex;align-items:center;justify-content:space-between;padding:8px 6px 3px;font:700 13px var(--mono);color:var(--c)}
+.sw .hex svg{width:14px;height:14px}
+.sw.g{padding:0;background:transparent;box-shadow:none}
+.sw.g .pill{position:relative;height:74px;border-radius:40px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:linear-gradient(90deg,var(--g1),var(--g2));box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.9),0 12px 22px -14px var(--c)}
+.sw.g .pill span{font:700 12px var(--mono);color:var(--c)}
+.sw.g .pill span:last-child{text-align:right}
+.sw.g .pill em{display:block;font:500 9px var(--display);font-style:normal;opacity:.7}
+.sw.g .cap{display:block;margin-top:6px;padding:0 8px;font:600 13px var(--display);color:var(--fg)}
+.sw.g .cap i{font-style:normal;font-family:var(--mono);color:var(--c);margin-right:6px}
+.sw.g[aria-pressed="true"]{box-shadow:none}
+.sw.g[aria-pressed="true"] .pill{box-shadow:0 0 0 3px var(--fg),inset 0 0 0 1.5px rgba(255,255,255,.9)}
+
+.chips{display:flex;flex-wrap:wrap;gap:10px;padding:4px 2px}
+.chip{width:34px;height:34px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--chip);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6);transition:transform .15s}
+.chip:hover{transform:scale(1.08)}
+.chip[aria-checked="true"]{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}
+.chip:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
+
+/* frosted colour: a fine grain plus a soft inner glow, so the selected colour reads as etched glass rather than paint */
+:root{--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.front .grain{position:absolute;inset:0;border-radius:inherit;background:var(--grain);background-size:160px;opacity:calc(var(--g,0) * .2);mix-blend-mode:soft-light;pointer-events:none}
+.folder.active .front{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),inset 0 0 22px rgba(255,255,255,.22)}
+.folder.active .frost{opacity:.45}
+.folder.active .ghost{text-shadow:0 0 6px rgba(255,255,255,.45)}
+.rpanel::after,.activity::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:var(--grain);background-size:160px;opacity:.18;mix-blend-mode:soft-light}
+.activity{position:relative;isolation:isolate}
+.rpanel>.rhead,.rpanel>.rbody{z-index:1}
+.activity>*{position:relative;z-index:1}
+
+/* note editor: a tapped note grows into this, same glass and colour as the reader */
+.editor{position:fixed;inset:0;z-index:1600;display:flex}
+.editor[hidden]{display:none}
+.ehead{position:relative;z-index:1;display:flex;align-items:center;gap:12px;width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;
+  padding:calc(18px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) 6px max(20px,env(safe-area-inset-left,0px))}
+.emeta{flex:1;min-width:0;text-align:center;font:500 12px var(--mono);color:color-mix(in srgb,var(--ink) 72%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ewrap{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;
+  padding:10px max(24px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px))}
+.etitle,.ebody{width:100%;box-sizing:border-box;border:0;outline:none;background:transparent;color:var(--ink);font-family:var(--display);padding:0}
+.etitle{font:700 28px/1.3 var(--display);padding:8px 0 14px}
+.ebody{flex:1;min-height:0;resize:none;font-size:17px;line-height:1.85;padding-top:14px;box-shadow:0 -1px 0 color-mix(in srgb,var(--ink) 14%,transparent)}
+.etitle::placeholder,.ebody::placeholder{color:color-mix(in srgb,var(--ink) 45%,transparent)}
+.etitle.need{animation:nudge .4s}
+@keyframes nudge{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.epanel .ehead,.epanel .ewrap{opacity:0;transition:opacity .2s}
+.editor.in .epanel .ehead,.editor.in .epanel .ewrap{opacity:1;transition:opacity .3s .26s}
+.econfirm{position:absolute;z-index:3;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;
+  padding:6px 6px 6px 16px;border-radius:999px;background:var(--fg);color:var(--bg);font:500 14px var(--display);white-space:nowrap;box-shadow:0 18px 40px -18px rgba(0,0,0,.5);animation:rise .3s cubic-bezier(.2,.8,.2,1)}
+.econfirm[hidden]{display:none}
+.econfirm button{height:34px;padding:0 14px;border:0;border-radius:999px;font:600 13px var(--display);cursor:pointer;background:transparent;color:var(--bg)}
+.econfirm button.keep{background:var(--bg);color:var(--fg)}
+.rnote{cursor:pointer;transition:background .2s,transform .2s}
+.rnote:hover{background:rgba(255,255,255,.26)}
+.rnote:active{transform:scale(.99)}
+.rnote:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.rnote.hold,.rbtn.hold{visibility:hidden}
+/* written paper: shows the newest note */
+.paper .pt,.paper .pb{display:none;position:absolute;left:12px;right:12px}
+.paper.written .pt{display:block;top:12px;font:700 11px/1.3 var(--display);color:#1d2621;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paper.written .pb{display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;top:32px;font:500 8.5px/1.6 var(--display);color:#5d6862;word-break:break-all}
+.paper.written{background:#fbfbf8}
+
+/* editor sheet */
+.sheet-bg[hidden]{display:none}
+.sheet-bg{position:fixed;inset:0;z-index:2000;background:var(--scrim);display:flex;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  animation:fade .25s ease}
+.sheet{width:min(560px,100%);background:var(--glass-2);-webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%);border-radius:28px;padding:22px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 30px 80px -30px rgba(18,28,22,.45);animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+.sheet .head{display:flex;align-items:center;gap:10px}
+.sheet .nb{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;background:var(--tint);color:var(--tint-fg);font:600 13px var(--display)}
+.sheet .head span:last-child{margin-left:auto;color:var(--muted);font:400 12px var(--mono)}
+.sheet input,.sheet textarea{width:100%;box-sizing:border-box;border:0;border-radius:16px;background:var(--glass-row);color:var(--fg);font-family:var(--display);padding:14px 16px;outline:none;transition:background .2s}
+.sheet input{font-size:20px;font-weight:600}
+.sheet textarea{font-size:15px;line-height:1.7;min-height:180px;resize:vertical}
+.sheet input:focus,.sheet textarea:focus{background:var(--tint)}
+.sheet .actions{display:flex;gap:10px;justify-content:flex-end}
+.sheet .btn{height:44px;padding:0 20px;border:0;border-radius:999px;font:600 15px var(--display);cursor:pointer;background:var(--surface);color:var(--fg)}
+.sheet .btn.primary{background:var(--a);color:var(--on)}
+.sheet .btn.primary:disabled{opacity:.45;cursor:default}
+.sheet .btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.sheet .err{color:var(--err);font-size:13px;min-height:1em}
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.98)}}
+@media (max-width:760px){.sheet-bg{align-items:flex-end;padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}.sheet{border-radius:26px}}
+.toast{position:fixed;left:50%;bottom:max(24px,calc(env(safe-area-inset-bottom,0px) + 16px));transform:translateX(-50%);z-index:2100;background:var(--fg);color:var(--bg);
+  padding:12px 18px;border-radius:999px;font:500 14px var(--display);animation:rise .35s cubic-bezier(.2,.8,.2,1)}
+.hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:400 12px var(--mono);color:var(--muted)}
+
+/* ---------- detail ---------- */
+.detail{display:grid;grid-template-columns:1fr 1.3fr;gap:14px}
+.card{border-radius:22px;padding:22px;background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 var(--glass-hi),0 18px 40px -24px rgba(20,40,30,.35);min-width:0}
+.card h2{margin:0;font:600 20px var(--display);text-wrap:balance}
+.card .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.kd{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.kd .row{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:12px 14px;border-radius:12px;background:var(--bg);font-size:14px}
+.kd .row span:first-child{font-variant-numeric:tabular-nums}
+.kd .note{padding:12px 14px;border-radius:12px;background:var(--glass-row);min-width:0}
+.kd .note b{display:block;font-size:14px;font-weight:600}
+.kd .note small{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kd .row small{display:block;color:var(--muted);font:400 11px var(--mono);margin-top:2px}
+.activity{background:linear-gradient(160deg,var(--s1),var(--sm) 55%,var(--s2));box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),inset 0 0 30px rgba(255,255,255,.15),0 18px 40px -24px color-mix(in srgb,var(--s2) 50%,transparent);color:var(--ink)}
+.activity .sub{color:color-mix(in srgb,var(--ink) 75%,transparent)}
+.progress{margin-top:20px}
+.progress .lbl{display:flex;justify-content:space-between;font-size:13px}
+.progress .lbl b{font:500 13px var(--mono)}
+.bar{height:10px;margin-top:10px;background:rgba(255,255,255,.22);border-radius:6px;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:6px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.files{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.file{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.12)}
+.file .ic{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;flex:none}
+.file .t{min-width:0}
+.file .t div{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .t small{font:400 11px var(--mono);color:color-mix(in srgb,var(--ink) 70%,transparent)}
+.swap{animation:swap .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes swap{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media (max-width:760px){
+  .detail{grid-template-columns:1fr}
+  .stage{--rail:50%;height:max(calc(360px * var(--s,1)),56vh)}
+  .top{flex-wrap:nowrap;gap:6px}
+  .booklabel{display:inline-flex;align-items:center;gap:8px;height:40px;font:600 16px var(--display);color:var(--fg);white-space:nowrap}
+.booklabel svg{width:18px;height:18px;opacity:.75}
+.booklabel #bookCount{color:var(--muted);font:500 14px var(--mono)}
+.navbtn.add{background:var(--a);color:var(--on)}
+.navbtn.add:hover{background:var(--green-deep)}
+.pill{padding:0 10px;font-size:12px;gap:6px}
+  .counter{font-size:12px}
+  .hint{display:none}
+  .kd .row{grid-template-columns:90px 1fr}
+}
+@media (prefers-reduced-motion:reduce){.paper,.bar i,.reader,.rpanel,.rbody{transition:none!important}.swap{animation:none}}
+</style>
+
+<div class="app">
+  <div class="top">
+    <span class="booklabel"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>笔记本 <span id="bookCount">14</span></span>
+    <span class="spacer"></span>
+    <button class="navbtn" id="themeBtn" aria-label="切换深色模式"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path id="themeIco" d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg></button>
+    <button class="navbtn add" id="addBtn" aria-label="新建笔记本"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5h2v14h-2z"/><path d="M5 11h14v2H5z"/></svg></button>
+  </div>
+
+  <div class="stage" id="stage" tabindex="0" aria-label="笔记卷轴。用方向键翻页，回车翻开。">
+    <div class="floor"></div><div class="contact" id="contact"></div><div class="rail"><div class="track" id="track"></div></div>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="gBack" x1="0" y1="0" x2=".5" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset="1" stop-color="#fff" stop-opacity=".34"/></linearGradient><linearGradient id="gFront" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".82"/><stop offset=".5" stop-color="#f7faf8" stop-opacity=".58"/><stop offset="1" stop-color="#eef3f0" stop-opacity=".46"/></linearGradient><linearGradient id="gSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="gGreen" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fe08a"/><stop offset=".5" stop-color="#2bb158"/><stop offset="1" stop-color="#157a3b"/></linearGradient><linearGradient id="gGreenB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fcf70" stop-opacity=".9"/><stop offset="1" stop-color="#147536" stop-opacity=".85"/></linearGradient><linearGradient id="gStroke" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b4beb8"/><stop offset="1" stop-color="#c9d1cc"/></linearGradient></defs></svg>
+    <div class="hint">拖拽 · 滚轮 · 方向键 · 点选中的笔记本打开</div>
+  </div>
+
+  <div class="detail">
+    <div class="card">
+      <h2>置顶笔记</h2>
+      <div class="sub" id="kdSub">读书笔记里常看的几篇</div>
+      <div class="kd" id="kd"></div>
+    </div>
+    <div class="card activity">
+      <h2 id="aName">读书笔记</h2>
+      <div class="sub">最近编辑 · 共 <span id="aCount">0</span> 篇</div>
+      <div class="progress"><div class="lbl"><span id="aTask">本周写作</span><b id="aPct">0 / 0 字</b></div><div class="bar"><i id="aBar"></i></div></div>
+      <div class="files" id="files"></div>
+    </div>
+  </div>
+</div>
+
+<div class="reader" id="reader" hidden>
+  <section class="rpanel" id="rpanel" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+    <div class="rhead"><h2 id="rTitle">读书笔记<small id="rMeta">128 篇</small></h2>
+      <button type="button" class="rbtn solid" id="rWrite"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5h2v14h-2z"/><path d="M5 11h14v2H5z"/></svg>写笔记</button>
+      <button type="button" class="rbtn" id="rClose" aria-label="合上"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="rbody" id="rBody"></div>
+  </section>
+</div>
+<div class="sheet-bg" id="bookBg" hidden>
+  <form class="sheet" id="bookForm" autocomplete="off">
+    <div class="head"><span class="nb">新建笔记本</span><span id="bookHint">第 15 个</span></div>
+    <input id="bookName" name="bookName" placeholder="笔记本名称" maxlength="12" aria-label="笔记本名称">
+    <div class="chips" id="bookChips" role="radiogroup" aria-label="玻璃颜色"></div>
+    <div class="err" id="bookErr"></div>
+    <div class="actions"><button type="button" class="btn" id="bookCancel">取消</button><button type="submit" class="btn primary">创建</button></div>
+  </form>
+</div>
+<div class="editor" id="editor" hidden>
+  <section class="rpanel epanel" id="epanel" role="dialog" aria-modal="true" aria-label="编辑笔记">
+    <header class="ehead">
+      <button type="button" class="rbtn" id="eBack" aria-label="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="emeta" id="eMeta">产品构思 · 0 字</div>
+      <button type="button" class="rbtn solid" id="eSave">保存</button>
+    </header>
+    <div class="ewrap">
+      <input id="eTitle" class="etitle" placeholder="标题" maxlength="60" aria-label="标题" autocomplete="off">
+      <textarea id="eBody" class="ebody" placeholder="写点什么…" aria-label="正文"></textarea>
+    </div>
+    <div class="econfirm" id="eConfirm" hidden><span>修改还没保存</span><button type="button" id="eDiscard">放弃</button><button type="button" class="keep" id="eKeep">继续编辑</button></div>
+  </section>
+</div>
+<script>
+const root=document.documentElement;
+const ICON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 17.3V20h2.7L17.8 8.9l-2.7-2.7z"/><path d="M20.7 6a1 1 0 0 0 0-1.4l-1.3-1.3a1 1 0 0 0-1.4 0l-1.2 1.2 2.7 2.7z"/></svg>';
+const DATA=[
+ {n:"灵感速记",c:342,t:"今天 08:12",w:1860,g:3000,pins:[["地铁上想到的配色方案","雾绿配暖灰，按钮用实心色块"],["App 名字候选","拾页、卷宗、Folio"]],recent:[["凌晨两点的一个想法","今天 08:12"],["咖啡店听到的对话","昨天 18:40"]]},
+ {n:"读书笔记",c:128,t:"今天 09:40",w:3240,g:5000,pins:[["《设计中的设计》摘录","“设计是把握事物本质的感觉”"],["《置身事内》第三章","土地财政与地方债的循环"],["年度书单","已读 23 / 计划 36"]],recent:[["《人类简史》读后感","今天 09:40"],["《原则》第二部分划线","昨天 22:15"],["《被讨厌的勇气》摘抄","周六 16:02"]]},
+ {n:"会议纪要",c:96,t:"昨天 17:30",w:4120,g:4000,pins:[["周一例会模板","目标 · 进展 · 阻碍 · 下周计划"],["Q4 规划会结论","优先做移动端，桌面延后"]],recent:[["设计评审 · 首页改版","昨天 17:30"],["客户沟通 · 交付节点","周四 11:00"]]},
+ {n:"学习笔记",c:211,t:"今天 07:55",w:2650,g:6000,pins:[["CSS 3D 变换要点","perspective 要放在父元素上"],["日语 N2 语法","〜わけにはいかない 的用法"]],recent:[["three.js 光照入门","今天 07:55"],["线性代数 · 特征值","周五 21:10"]]},
+ {n:"日记",c:487,t:"昨天 23:48",w:3900,g:3500,pins:[["2026 年的三个愿望","搬家、学游泳、写完小说"],["写给一年后的自己","记得多出门走走"]],recent:[["十一月的第一天","昨天 23:48"],["下雨天的周末","周六 22:30"]]},
+ {n:"旅行计划",c:38,t:"周三 20:05",w:900,g:2000,pins:[["京都 5 日行程","岚山 · 伏见稻荷 · 哲学之道"],["行李清单","转换插头别忘了"]],recent:[["机票比价记录","周三 20:05"],["民宿候选","周二 19:44"]]},
+ {n:"产品构思",c:74,t:"今天 10:20",w:2280,g:4000,pins:[["笔记卷轴交互说明","拖拽、滚轮、键盘三种翻页"],["用户访谈要点","大家想要更快找到旧笔记"]],recent:[["首页信息架构草稿","今天 10:20"],["竞品拆解 · 笔记类应用","昨天 15:36"]]},
+ {n:"工作周报",c:52,t:"周五 18:00",w:1500,g:1500,pins:[["周报模板","本周完成 · 下周计划 · 风险"]],recent:[["第 44 周周报","周五 18:00"],["第 43 周周报","上周五 17:52"]]},
+ {n:"菜谱",c:63,t:"周日 12:30",w:620,g:1000,pins:[["番茄牛腩","先炒番茄出沙再下牛腩"],["周末早餐合集","松饼、班尼迪克蛋"]],recent:[["葱油拌面","周日 12:30"],["电饭煲蛋糕","周六 10:05"]]},
+ {n:"健身记录",c:156,t:"今天 06:45",w:400,g:800,pins:[["五分化训练计划","胸 · 背 · 腿 · 肩 · 手臂"],["体脂变化","三个月下降 3.2%"]],recent:[["腿日 · 深蹲 5×5","今天 06:45"],["有氧 40 分钟","昨天 20:10"]]},
+ {n:"摄影",c:47,t:"周四 21:15",w:700,g:1500,pins:[["胶片参数备忘","Portra 400 过曝一档"],["想去拍的地方","老城区的菜市场"]],recent:[["夜景长曝光练习","周四 21:15"],["街拍构图笔记","周二 13:22"]]},
+ {n:"待办清单",c:89,t:"今天 11:02",w:300,g:500,pins:[["本周必做","交房租、续签证、取快递"],["长期目标","每月读两本书"]],recent:[["周二要买的东西","今天 11:02"],["月底前处理","昨天 09:30"]]},
+ {n:"写作草稿",c:33,t:"周日 01:20",w:5200,g:7000,pins:[["小说大纲 · 第一卷","主角在旧书店找到一本空白笔记"],["散文：城市的声音","开头还没想好"]],recent:[["第七章 初稿","周日 01:20"],["人物小传修改","周五 23:40"]]},
+ {n:"剪藏收集",c:264,t:"昨天 14:10",w:0,g:1000,pins:[["好文章合集","关于专注力的长文"],["设计灵感网站","每周一看"]],recent:[["一篇关于玻璃拟态的文章","昨天 14:10"],["字体搭配指南","周三 09:18"]]}
+];
+let N=DATA.length; const track=document.getElementById('track'), stage=document.getElementById('stage');
+const SOLID=[
+ {id:'green',n:'笔记绿',en:'NOTE GREEN',a:'#2aa955'},
+ {id:'marrs',n:'马尔斯绿',en:'MARRS GREEN',a:'#018B8D'},
+ {id:'klein',n:'克莱因蓝',en:'KLEIN BLUE',a:'#002FA7'},
+ {id:'prussian',n:'普鲁士蓝',en:'PRUSSIAN BLUE',a:'#0D3A69'},
+ {id:'tiffany',n:'蒂芙尼蓝',en:'TIFFANY BLUE',a:'#71E2D1',ink:'#0b4a42',on:'#0b4a42'},
+ {id:'hermes',n:'爱马仕橙',en:'HERMES ORANGE',a:'#EB5C20'},
+ {id:'titian',n:'提香红',en:'TITIAN RED',a:'#D34947'},
+ {id:'burgundy',n:'勃艮第红',en:'BURGUNDY RED',a:'#470125'},
+ {id:'schon',n:'申布伦黄',en:'SCHONBRUNNER GELB',a:'#F9D46C',ink:'#5a4304',on:'#5a4304'},
+ {id:'lime',n:'莱姆绿',en:'LIME GREEN',a:'#6ECC54',ink:'#1f4a12',on:'#1f4a12'},
+ {id:'vandyke',n:'凡戴克棕',en:'VANDYKE BROWN',a:'#492D22'},
+];
+const GRAD=[
+ {id:'g01',no:'01',n:'这就是我想要的',g1:'#DDFFC2',g2:'#EEE1FF',a:'#76BE52'},
+ {id:'g02',no:'02',n:'一眼心动系列',g1:'#FFEAE1',g2:'#B6FAFF',a:'#C49A78'},
+ {id:'g03',no:'03',n:'美好从审美开始',g1:'#CFFFBD',g2:'#B9DFFF',a:'#7A82B6'},
+ {id:'g04',no:'04',n:'梦境的粉色泡泡',g1:'#DBDDFF',g2:'#FFD0D0',a:'#E2847F'},
+ {id:'g05',no:'05',n:'所有的美好给你',g1:'#ACFFF1',g2:'#FFDCDC',a:'#4FAE94'},
+ {id:'g06',no:'06',n:'这配色太上头',g1:'#FFFFD0',g2:'#D8EFFF',a:'#7FA6C2'},
+ {id:'g07',no:'07',n:'粉末天青一见倾心',g1:'#B9FFFA',g2:'#FFC5CE',a:'#D08D98'},
+ {id:'g10',no:'10',n:'黄紫迷人眼',g1:'#FFFFD0',g2:'#D2CDFF',a:'#928EDA'},
+];
+const COLORS=[...SOLID.map(c=>c.id),...GRAD.map(c=>c.id)];
+// every colour resolves to the same set of surface stops, so a book, the reader and the cards all read from one recipe
+function colourVars(id){
+  const S=SOLID.find(x=>x.id===id), G=GRAD.find(x=>x.id===id);
+  if(G) return {'--a':G.a,'--s1':`color-mix(in srgb,${G.g1} 64%,${G.a})`,'--sm':`color-mix(in srgb,color-mix(in srgb,${G.g1},${G.g2}) 58%,${G.a})`,
+    '--s2':`color-mix(in srgb,${G.g2} 60%,${G.a})`,'--ink':`color-mix(in srgb,${G.a} 55%,#000)`,'--on':'#fff','--chip':`linear-gradient(135deg,${G.g1},${G.g2})`};
+  const P=S||SOLID[0];
+  return {'--a':P.a,'--s1':`color-mix(in srgb,${P.a} 72%,#fff)`,'--sm':P.a,'--s2':`color-mix(in srgb,${P.a} 76%,#000)`,'--ink':P.ink||'#fff','--on':P.on||'#fff','--chip':P.a};
+}
+function paintVars(el,id){ const v=colourVars(id); for(const k in v) el.style.setProperty(k,v[k]); }
+const colourName=id=>{ const c=SOLID.find(x=>x.id===id)||GRAD.find(x=>x.id===id); return c?c.n:''; };
+const DEFAULT_COL={'灵感速记':'schon','读书笔记':'prussian','会议纪要':'marrs','学习笔记':'klein','日记':'g04','旅行计划':'tiffany','产品构思':'green','工作周报':'vandyke','菜谱':'hermes','健身记录':'lime','摄影':'g07','待办清单':'titian','写作草稿':'burgundy','剪藏收集':'g10'};
+DATA.forEach((d,i)=>{ d.col=DEFAULT_COL[d.n]||COLORS[i%COLORS.length];
+  d.notes=[...d.pins.map(([t,b])=>({t,b,m:'置顶',pin:true})),...d.recent.map(([t,w])=>({t,b:'',m:w+' 编辑'}))]; });
+const NOTES_KEY='notes-carousel-notes';
+try{ // earlier versions kept only new notes, by notebook index
+  const old=JSON.parse(localStorage.getItem('notes-carousel-v1')||'{}')||{};
+  for(const [k,list] of Object.entries(old)){ const d=DATA[+k]; if(!d||!Array.isArray(list)) continue;
+    list.forEach(n=>{ d.notes.unshift({t:n.title,b:n.body||'',m:'更早'}); d.c++; d.w+=(n.body||'').replace(/\s/g,'').length; }); }
+  const store=JSON.parse(localStorage.getItem(NOTES_KEY)||'{}')||{};
+  DATA.forEach(d=>{ const v=store[d.n]; if(v&&Array.isArray(v.notes)){ d.notes=v.notes; d.c=v.c; d.w=v.w; d.t=v.t||d.t; } });
+}catch(_){}
+function saveNotes(){ try{ const store=JSON.parse(localStorage.getItem(NOTES_KEY)||'{}')||{};
+  DATA.forEach(d=>{ if(d.touched) store[d.n]={notes:d.notes,c:d.c,w:d.w,t:d.t}; }); localStorage.setItem(NOTES_KEY,JSON.stringify(store)); }catch(_){} }
+const pinsOf=d=>d.notes.filter(n=>n.pin).map(n=>[n.t,n.b]);
+const recentOf=d=>d.notes.filter(n=>!n.pin).slice(0,4).map(n=>[n.t,n.m]);
+const ghostOf=d=>(d.notes[0]?d.notes[0].t:'').replace(/[<>&]/g,'');
+function makeFolder(d,i){const f=document.createElement('div');f.className='folder'; paintVars(f,d.col);
+  f.innerHTML=`<div class="gf s-l"></div><div class="gf s-r"></div><div class="gf s-t"></div><div class="paper p2"></div><div class="paper p1"><div class="pt"></div><div class="pb"></div></div><div class="gf front"><div class="g-fill"></div><div class="ghost">${ghostOf(d)}</div><div class="frost"></div><div class="sheen"></div><div class="grain"></div><span class="flabel">${d.n}</span><span class="fcount">${d.c}</span></div>`;
+  f.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse') hoverI=i; });
+  f.addEventListener('pointerleave',()=>{ if(hoverI===i) hoverI=-1; });
+  track.appendChild(f); return f;}
+const els=DATA.map(makeFolder);
+
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let pos=6, target=6, active=-1, open=false, dragging=false, moved=false;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function go(i){target=clamp(Math.round(i),0,N-1); if(reduce) pos=target;}
+function toggleOpen(){open=!open; els[active].classList.toggle('open',open);}
+
+let S=1, halfW=600;
+function scale(){const w=stage.clientWidth; S=clamp(w/690,.95,1.8); halfW=w/2; stage.style.setProperty('--s',clamp(w/690,.95,1.8).toFixed(3));
+}
+addEventListener('resize',scale); scale();
+
+const lift=new Array(N).fill(0), contact=document.getElementById('contact'); let hoverI=-1;
+function render(){
+  for(let i=0;i<N;i++){
+    const d=i-pos, ad=Math.abs(d), sg=Math.sign(d), t=Math.min(ad,1), far=Math.max(ad-1,0), c=1-t;
+    const x=sg*(t*125+far*34)-c*10, z=-t*30+c*20, y=-c*10;
+    const ry=-clamp(d*1.5,-1,1)*60-14;
+    const el=els[i];
+    lift[i]+=(((hoverI===i&&!dragging&&i!==active)?1:0)-lift[i])*(reduce?1:0.18);
+    el.style.transform=`translate3d(${x}px,${y-lift[i]*12}px,${z+lift[i]*14}px) rotateX(-6deg) rotateY(${ry+lift[i]*6}deg)`;
+    el.style.setProperty('--lo',clamp(1.45-ad*0.32,0,1).toFixed(3));
+    const op=clamp(1.3-far/7,0,1), off=Math.abs(x)*S>halfW+160;
+    el.style.visibility=(op<0.02||off)?'hidden':'visible';
+    const lite=ad>1.6; if(el._lite!==lite){ el._lite=lite; el.classList.toggle('lite',lite); }
+    el.style.zIndex=1000-Math.round(ad*20);
+    el.style.opacity=op;
+    el.style.setProperty('--g',clamp(1-ad*1.6,0,1).toFixed(3));
+  }
+  const settle=1-clamp(Math.abs(pos-Math.round(pos))*4,0,1);
+  contact.style.opacity=(0.35+settle*0.65).toFixed(3);
+  const a=clamp(Math.round(pos),0,N-1); if(a!==active) setActive(a);
+}
+
+function setActive(a){
+  if(active>=0){els[active].classList.remove('active','open');} open=false;
+  active=a; els[a].classList.add('active'); const d=DATA[a]; paintVars(root,d.col);
+  const $=id=>document.getElementById(id), fmt=n=>n.toLocaleString('zh-CN');
+  $('aName').textContent=d.n; $('aCount').textContent=d.c;
+  $('aPct').textContent=`${fmt(d.w)} / ${fmt(d.g)} 字`;
+  $('aBar').style.width=Math.min(100,d.w/d.g*100)+'%';
+  $('kdSub').textContent=d.n+'里常看的几篇';
+  const kd=$('kd'); kd.innerHTML=pinsOf(d).length?pinsOf(d).map(([t,x])=>`<div class="note"><b>${t}</b><small>${x}</small></div>`).join(''):`<div class="note"><b>还没有置顶笔记</b><small>写几篇之后，常看的会出现在这里</small></div>`;
+  const fl=$('files'); fl.innerHTML=recentOf(d).length?'':`<div class="file"><span class="t"><div>还没有笔记</div><small>点开这本书，再点「写笔记」写第一篇</small></span></div>`;
+  if(recentOf(d).length) fl.innerHTML=recentOf(d).map(([t,w])=>`<div class="file"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M4 17.3V20h2.7L17.8 8.9l-2.7-2.7z"/><path d="M20.7 6a1 1 0 0 0 0-1.4l-1.3-1.3a1 1 0 0 0-1.4 0l-1.2 1.2 2.7 2.7z"/></svg></span><span class="t"><div>${t}</div><small>${w} 编辑</small></span></div>`).join('');
+  for(const el of [kd,fl,$('aName')]){el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap');}
+}
+
+
+// drag with inertia
+let sx=0,sp=0,lx=0,lt=0,vel=0;
+const PER=55; // px of drag per folder
+stage.addEventListener('pointerdown',e=>{dragging=true;moved=false;sx=lx=e.clientX;sp=pos;lt=performance.now();vel=0;stage.classList.add('dragging');stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{if(!dragging)return;const s=parseFloat(stage.style.getPropertyValue('--s'))||1;
+  const dx=e.clientX-sx; if(Math.abs(dx)>4) moved=true;
+  pos=target=clamp(sp-dx/(PER*s),-0.4,N-0.6);
+  const now=performance.now(); vel=(e.clientX-lx)/Math.max(now-lt,1); lx=e.clientX; lt=now;});
+// the stage captures the pointer while dragging, so a tap is resolved here instead of with per-book click handlers
+const end=e=>{if(!dragging)return;dragging=false;stage.classList.remove('dragging');
+  if(!moved && e && e.type==='pointerup'){
+    const hit=document.elementFromPoint(e.clientX,e.clientY), bk=hit&&hit.closest('.folder'), i=bk?els.indexOf(bk):-1;
+    if(i>=0){ if(i===active) openReader(); else go(i); return; }
+    go(Math.round(pos)); return;
+  }
+  const s=parseFloat(stage.style.getPropertyValue('--s'))||1; go(pos - vel*160/(PER*s));
+  setTimeout(()=>moved=false,0);};
+stage.addEventListener('pointerup',end); stage.addEventListener('pointercancel',end);
+
+// wheel
+let wt; stage.addEventListener('wheel',e=>{e.preventDefault();const dlt=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+  target=clamp(target+dlt/160,0,N-1); clearTimeout(wt); wt=setTimeout(()=>go(target),140);},{passive:false});
+
+// keys & buttons
+stage.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){go(target+1);e.preventDefault();}
+  else if(e.key==='ArrowLeft'){go(target-1);e.preventDefault();}
+  else if(e.key==='Enter'||e.key===' '){openReader();e.preventDefault();}
+  else if(e.key==='Home'){go(0)} else if(e.key==='End'){go(N-1)}});
+
+(function loop(){ if(!dragging){ pos += (target-pos)*(reduce?1:0.12); if(Math.abs(target-pos)<0.0005) pos=target; } render(); requestAnimationFrame(loop); })();
+
+// ---------- new notebook ----------
+const BOOKS_KEY='notes-carousel-books';
+function addBook(name,col){
+  const d={n:name,col:col||COLORS[DATA.length%COLORS.length],c:0,t:'刚刚',w:0,g:2000,pins:[],recent:[],notes:[]};
+  DATA.push(d); const i=DATA.length-1; N=DATA.length; lift.push(0); els.push(makeFolder(d,i));
+  document.getElementById('bookCount').textContent=N; return i;
+}
+const bBg=document.getElementById('bookBg'), bForm=document.getElementById('bookForm'), bName=document.getElementById('bookName'), bErr=document.getElementById('bookErr');
+let pickCol='green';
+const chipsEl=document.getElementById('bookChips');
+chipsEl.innerHTML=COLORS.map(id=>{ const v=colourVars(id); return `<button type="button" class="chip" role="radio" data-id="${id}" style="--chip:${v['--chip']}" aria-label="${colourName(id)}" title="${colourName(id)}"></button>`; }).join('');
+function markChip(){ chipsEl.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-checked',c.dataset.id===pickCol)); }
+chipsEl.addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(c){ pickCol=c.dataset.id; markChip(); } });
+function openBook(){ const used=new Set(DATA.map(d=>d.col)); pickCol=COLORS.find(id=>!used.has(id))||COLORS[DATA.length%COLORS.length]; markChip(); bName.value=''; bErr.textContent=''; document.getElementById('bookHint').textContent='第 '+(N+1)+' 个'; bBg.hidden=false; setTimeout(()=>bName.focus(),50); }
+function closeBook(){ bBg.hidden=true; document.getElementById('addBtn').focus(); }
+document.getElementById('addBtn').onclick=openBook;
+document.getElementById('bookCancel').onclick=closeBook;
+bBg.addEventListener('pointerdown',e=>{ if(e.target===bBg) closeBook(); });
+bBg.addEventListener('keydown',e=>{ if(e.key==='Escape') closeBook(); e.stopPropagation(); });
+bForm.addEventListener('submit',e=>{ e.preventDefault();
+  const name=bName.value.trim();
+  if(!name){ bErr.textContent='给笔记本起个名字'; bName.focus(); return; }
+  if(DATA.some(d=>d.n===name)){ bErr.textContent='已经有叫「'+name+'」的笔记本了'; bName.focus(); return; }
+  const i=addBook(name,pickCol);
+  try{ const list=JSON.parse(localStorage.getItem(BOOKS_KEY)||'[]'); list.push({n:name,col:pickCol}); localStorage.setItem(BOOKS_KEY,JSON.stringify(list)); }catch(_){}
+  bBg.hidden=true; go(i); stage.focus({preventScroll:true});
+  const t=document.createElement('div'); t.className='toast'; t.textContent='已创建「'+name+'」'; document.body.appendChild(t); setTimeout(()=>t.remove(),2200);
+});
+try{ JSON.parse(localStorage.getItem(BOOKS_KEY)||'[]').forEach(b=>{ const n=typeof b==='string'?b:b&&b.n, col=b&&b.col; if(n&&!DATA.some(d=>d.n===n)) addBook(n,COLORS.includes(col)?col:undefined); }); }catch(_){}
+document.getElementById('bookCount').textContent=N;
+
+// ---------- book face: newest note shows through the frosted cover ----------
+function paint(i){ const d=DATA[i], el=els[i], n=d.notes[0];
+  el.querySelector('.fcount').textContent=d.c; el.querySelector('.ghost').textContent=ghostOf(d);
+  if(n) el.querySelectorAll('.paper.p1').forEach(p=>{ p.classList.add('written'); p.querySelector('.pt').textContent=n.t; p.querySelector('.pb').textContent=n.b||' '; }); }
+DATA.forEach((d,i)=>{ if(d.touched||d.notes.length) paint(i); });
+
+// ---------- reader: tap the selected book and it grows into a full panel with the notes inside ----------
+const reader=document.getElementById('reader'), rpanel=document.getElementById('rpanel'), rBody=document.getElementById('rBody');
+let readerOpen=false, readerBook=-1, rAnim=false;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fillReader(i){ const d=DATA[i];
+  document.getElementById('rTitle').innerHTML=`${esc(d.n)}<small>${d.c} 篇 · ${esc(d.t)}</small>`;
+  rBody.innerHTML=d.notes.length?d.notes.map((n,k)=>`<article class="rnote" tabindex="0" role="button" data-k="${k}" aria-label="编辑 ${esc(n.t)}"><h3>${esc(n.t)}</h3><div class="meta">${esc(n.m)}</div>${n.b?`<p>${esc(n.b)}</p>`:''}</article>`).join('')
+    :`<div class="rempty">这本还是空的。<br>点右上角的「写笔记」写第一篇。</div>`;
+}
+function flipTo(panel,el){ const r=el.getBoundingClientRect(), f=panel.getBoundingClientRect();
+  return `translate(${r.left-f.left}px,${r.top-f.top}px) scale(${r.width/f.width},${r.height/f.height})`; }
+const flipFrom=el=>flipTo(rpanel,el);
+// the tap that opens a book also fires a click right after; once the reader covers the screen that click would land on a note card and open it, so swallow it
+let rOpenedAt=-1e9;
+reader.addEventListener('click',e=>{ if(performance.now()-rOpenedAt<600){ e.stopPropagation(); e.preventDefault(); } },true);
+function openReader(){
+  if(readerOpen||rAnim||active<0) return;
+  rOpenedAt=performance.now();
+  const bk=els[active], cover=bk.querySelector('.front');
+  readerOpen=true; readerBook=active; fillReader(active); rBody.scrollTop=0;
+  reader.hidden=false; rpanel.style.transition='none';
+  if(!reduce){ rpanel.style.transform=flipFrom(cover); rpanel.style.borderRadius='6px'; }
+  bk.classList.add('reading');
+  void rpanel.offsetWidth;
+  rpanel.style.transition='transform .55s cubic-bezier(.2,.85,.25,1),border-radius .55s';
+  rpanel.style.transform=''; rpanel.style.borderRadius='';
+  reader.classList.add('in');
+  setTimeout(()=>document.getElementById('rClose').focus({preventScroll:true}),420);
+}
+function closeReader(){
+  if(!readerOpen||rAnim) return; rAnim=true;
+  const bk=els[readerBook], cover=bk.querySelector('.front');
+  reader.classList.remove('in');
+  bk.classList.remove('reading'); const t=reduce?'':flipFrom(cover); bk.classList.add('reading');
+  rpanel.style.transition='transform .45s cubic-bezier(.4,0,.2,1),border-radius .45s';
+  rpanel.style.transform=t; rpanel.style.borderRadius='6px';
+  setTimeout(()=>{ reader.hidden=true; rpanel.style.transition='none'; rpanel.style.transform=''; rpanel.style.borderRadius='';
+    bk.classList.remove('reading'); readerOpen=false; rAnim=false; stage.focus({preventScroll:true}); }, reduce?0:450);
+}
+document.getElementById('rClose').onclick=closeReader;
+reader.addEventListener('pointerdown',e=>{ if(e.target===reader) closeReader(); });
+reader.addEventListener('keydown',e=>{ if(e.key==='Escape'&&editor.hidden){ e.preventDefault(); closeReader(); } e.stopPropagation(); });
+
+// ---------- editor: a note (or the 写笔记 button) grows to full screen; save shrinks it back into its card ----------
+const editor=document.getElementById('editor'), epanel=document.getElementById('epanel'), eTitle=document.getElementById('eTitle'), eBody=document.getElementById('eBody'),
+      eMeta=document.getElementById('eMeta'), eConfirm=document.getElementById('eConfirm'), rWrite=document.getElementById('rWrite');
+let edK=-1, edFrom=null, edAnim=false, edStart={t:'',b:''};
+const chars=t=>t.replace(/\s/g,'').length;
+const edDirty=()=>eTitle.value!==edStart.t||eBody.value!==edStart.b;
+function edMeta(){ eMeta.textContent=`${DATA[readerBook].n} · ${chars(eBody.value)} 字`; }
+function openEditor(k,fromEl){
+  if(edAnim||!editor.hidden) return;
+  const d=DATA[readerBook], n=k>=0?d.notes[k]:null;
+  edK=k; edFrom=fromEl; edStart={t:n?n.t:'',b:n?n.b:''}; eTitle.value=edStart.t; eBody.value=edStart.b; eConfirm.hidden=true; edMeta();
+  editor.hidden=false; epanel.style.transition='none';
+  if(!reduce&&fromEl){ epanel.style.transform=flipTo(epanel,fromEl); epanel.style.borderRadius=k>=0?'16px':'999px'; }
+  fromEl&&fromEl.classList.add('hold');
+  void epanel.offsetWidth;
+  epanel.style.transition='transform .5s cubic-bezier(.2,.85,.25,1),border-radius .5s';
+  epanel.style.transform=''; epanel.style.borderRadius='';
+  editor.classList.add('in'); eBody.scrollTop=0;
+  setTimeout(()=>{ (k<0?eTitle:eBack).focus({preventScroll:true}); }, reduce?0:380);
+}
+function closeEditor(toEl){
+  if(edAnim) return; edAnim=true; eConfirm.hidden=true;
+  editor.classList.remove('in');
+  const target=toEl&&toEl.isConnected?toEl:rWrite;
+  target.classList.remove('hold'); const t=reduce?'':flipTo(epanel,target); target.classList.add('hold');
+  epanel.style.transition='transform .42s cubic-bezier(.4,0,.2,1),border-radius .42s';
+  epanel.style.transform=t; epanel.style.borderRadius=target===rWrite?'999px':'16px';
+  setTimeout(()=>{ editor.hidden=true; epanel.style.transition='none'; epanel.style.transform=''; epanel.style.borderRadius='';
+    document.querySelectorAll('.rnote.hold,.rbtn.hold').forEach(x=>x.classList.remove('hold'));
+    edAnim=false; edFrom=null; (target.isConnected?target:rWrite).focus({preventScroll:true}); }, reduce?0:420);
+}
+function saveEditor(){
+  let t=eTitle.value.trim(); const b=eBody.value.replace(/\s+$/,'');
+  if(!t&&!b.trim()){ closeEditor(edFrom); return; }
+  if(!t){ eTitle.classList.remove('need'); void eTitle.offsetWidth; eTitle.classList.add('need'); eTitle.placeholder='先写一个标题'; eTitle.focus(); return; }
+  const i=readerBook, d=DATA[i]; let k=edK;
+  if(k>=0){ const n=d.notes[k]; d.w+=chars(b)-chars(n.b||''); n.t=t; n.b=b; n.m=n.pin?'置顶 · 刚刚编辑':'刚刚编辑'; }
+  else { d.notes.unshift({t,b,m:'刚刚'}); d.c++; d.w+=chars(b); k=0; }
+  d.t='刚刚'; d.touched=true; saveNotes();
+  fillReader(i); paint(i);
+  const a=active; active=-1; setActive(a);
+  const card=rBody.querySelector(`.rnote[data-k="${k}"]`); card&&card.scrollIntoView({block:'nearest'});
+  closeEditor(card);
+  const tt=document.createElement('div'); tt.className='toast'; tt.textContent=edK>=0?'已保存':'已保存到「'+d.n+'」'; document.body.appendChild(tt); setTimeout(()=>tt.remove(),2000);
+}
+function backEditor(){ if(edDirty()){ eConfirm.hidden=false; document.getElementById('eKeep').focus(); } else closeEditor(edFrom); }
+const eBack=document.getElementById('eBack');
+eBack.onclick=backEditor;
+document.getElementById('eSave').onclick=saveEditor;
+document.getElementById('eDiscard').onclick=()=>closeEditor(edFrom);
+document.getElementById('eKeep').onclick=()=>{ eConfirm.hidden=true; eBody.focus(); };
+eBody.addEventListener('input',edMeta);
+eTitle.addEventListener('input',()=>{ eTitle.placeholder='标题'; });
+eTitle.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); eBody.focus(); } });
+editor.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ e.preventDefault(); eConfirm.hidden?backEditor():(eConfirm.hidden=true); }
+  if((e.metaKey||e.ctrlKey)&&e.key==='s'){ e.preventDefault(); saveEditor(); }
+  e.stopPropagation(); });
+rWrite.onclick=()=>openEditor(-1,rWrite);
+rBody.addEventListener('click',e=>{ const c=e.target.closest('.rnote'); if(c) openEditor(+c.dataset.k,c); });
+rBody.addEventListener('keydown',e=>{ const c=e.target.closest('.rnote'); if(c&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); openEditor(+c.dataset.k,c); } });
+
+// ---------- theme toggle ----------
+const mq=matchMedia('(prefers-color-scheme: dark)');
+const MOON='M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z', SUN='M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM11 1h2v3h-2zM11 20h2v3h-2zM1 11h3v2H1zM20 11h3v2h-3zM4.2 2.8l2.1 2.1-1.4 1.4-2.1-2.1zM19.1 17.7l2.1 2.1-1.4 1.4-2.1-2.1zM2.8 19.8l2.1-2.1 1.4 1.4-2.1 2.1zM17.7 4.9l2.1-2.1 1.4 1.4-2.1 2.1z';
+const isDark=()=>root.dataset.theme?root.dataset.theme==='dark':mq.matches;
+function syncIcon(){ const d=isDark(); document.getElementById('themeIco').setAttribute('d',d?SUN:MOON); document.getElementById('themeBtn').setAttribute('aria-label',d?'切换浅色模式':'切换深色模式'); }
+try{ const t=localStorage.getItem('notes-theme'); if(t==='dark'||t==='light') root.dataset.theme=t; }catch(e){}
+document.getElementById('themeBtn').onclick=()=>{ const t=isDark()?'light':'dark'; root.dataset.theme=t; try{localStorage.setItem('notes-theme',t)}catch(e){} syncIcon(); };
+mq.addEventListener?.('change',syncIcon); new MutationObserver(syncIcon).observe(root,{attributes:true,attributeFilter:['data-theme']}); syncIcon();
+
+</script>
+
+</body></html>
