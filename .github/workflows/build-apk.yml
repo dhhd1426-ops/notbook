@@ -23,6 +23,9 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Bundle fonts into the app
+        run: python3 tools/localize_fonts.py app/src/main/assets/www
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 

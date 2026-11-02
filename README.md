@@ -19,6 +19,7 @@
 | `app/src/main/assets/www/notes.html` | 笔记卷轴页面 |
 | `app/src/main/assets/www/typewriter.html` | 打字机页面 |
 | `app/src/main/java/com/notbook/app/MainActivity.java` | 全屏 WebView，本地加载上面三个页面 |
+| `tools/localize_fonts.py` | 打包时把页面用到的字体下载进安装包，启动不再联网等字体 |
 | `.github/workflows/build-apk.yml` | 每次推送到 `main` 自动打包 APK 并发布 Release |
 
 笔记保存在手机本地，卸载应用会清空。

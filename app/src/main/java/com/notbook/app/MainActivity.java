@@ -50,6 +50,12 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
+                String host = req.getUrl().getHost();
+                // fonts ship inside the app; answer any leftover Google Fonts request at once so nothing waits on the network
+                if (host != null && (host.endsWith("googleapis.com") || host.endsWith("gstatic.com"))) {
+                    return new WebResourceResponse("text/css", "utf-8",
+                            new java.io.ByteArrayInputStream(new byte[0]));
+                }
                 return loader.shouldInterceptRequest(req.getUrl());
             }
 
