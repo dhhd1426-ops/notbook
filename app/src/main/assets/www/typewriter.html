@@ -452,10 +452,13 @@ try{const l=localStorage.getItem('pm80-lang'); if(l==='zh'||l==='en') lang=l;}ca
 let W=0,H=0,dpr=1,PW,s,pL,pT,paperW,paperL0,textL0,textR0,strikeX,yPL,yClip;
 let M, emblemD, textStartOff, sheetH, BH, keepAbove;
 const vx=x=>pL+x*s, vy=y=>pT+y*s;
+// wide carriage: the platen assembly and the paper are drawn larger than the body, centred on the typing line (SVG y=136)
+let kP=1; const PLATEN_Y=136;
+const carScale=()=>`translate(500 ${PLATEN_Y}) scale(${kP}) translate(-500 ${-PLATEN_Y})`;
 let pTt=0, pTinit=false, compact=false, baseH=0;
 function applyPT(){
   for(const el of [svgB,svgF]) el.style.top=pT+'px';
-  yPL=vy(136); yClip=vy(178);
+  yPL=vy(PLATEN_Y); yClip=vy(PLATEN_Y+(178-PLATEN_Y)*kP);
 }
 function applyViewport(){
   const vv=window.visualViewport, h=vv?vv.height:innerHeight, top=vv?vv.offsetTop:0;
@@ -474,7 +477,9 @@ function layout(){
   if(!pTinit){ pT=pTt; pTinit=true; }
   for(const el of [svgB,svgF]) Object.assign(el.style,{left:pL+'px',width:PW+'px',height:PH+'px'});
   applyPT();
-  paperW=600*s; paperL0=vx(500)-paperW/2;
+  kP=W<600?1.35:1.18;
+  applyPT();
+  paperW=600*s*kP; paperL0=vx(500)-paperW/2;
   textL0=paperL0+paperW*.11; textR0=paperL0+paperW*.89;
   strikeX=vx(500);
   for(const c of [pc,fx]){c.width=Math.round(W*dpr); c.height=Math.round(H*dpr);}
@@ -487,10 +492,10 @@ function metrics(){
   const tw=textR0-textL0;
   if(lang==='en'){
     gx.font='100px '+TYPE; const ratio=(gx.measureText('M').width||60)/100;
-    const fs=clamp(tw/(27*ratio),11,15.5); const adv=fs*ratio;
+    const fs=clamp(tw/(27*ratio),11,15.5*kP); const adv=fs*ratio;
     return {fs,adv,cell:adv,font:`${fs}px ${TYPE}`,asc:fs*.74,lineH:Math.round(fs*1.45),cap:tw};
   }
-  const fs=clamp(tw/15.5,11,14.5);
+  const fs=clamp(tw/15.5,11,14.5*kP);
   return {fs,adv:fs*1.06,half:fs*.56,cell:fs*1.06,font:`700 ${fs}px ${SERIF}`,asc:fs*.84,lineH:Math.round(fs*1.8),cap:tw};
 }
 let gcache=new Map();
@@ -1083,8 +1088,8 @@ function updateMachine(now){
   const cx=carX()/s;
   const sh=`translate(${Math.abs(shake.x)<.02?0:shake.x.toFixed(2)}px,${Math.abs(shake.y)<.02?0:shake.y.toFixed(2)}px)`;
   if(sh!==updateMachine.sh){ updateMachine.sh=sh; for(const el of [svgB,svgF]) el.style.transform=sh; }
-  setA(carB,'transform',`translate(${cx.toFixed(2)} 0)`);
-  setA(carF,'transform',`translate(${cx.toFixed(2)} 0)`);
+  setA(carB,'transform',`translate(${cx.toFixed(2)} 0) ${carScale()}`);
+  setA(carF,'transform',`translate(${cx.toFixed(2)} 0) ${carScale()}`);
   setA(lever,'transform',`rotate(${leverA.toFixed(2)} 150 168)`);
   const moving=act&&(act.t==='nl'||act.t==='tab'||act.t==='feedIn');
   const rest=moving?.1:.42;
