@@ -4,11 +4,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&display=swap">
 <style>
-/* Layout: the two original pages stacked full-bleed; a slim bar under them takes the colour of whichever page is showing,
-   so it reads as the page's own floor. The active tab is a small colour block, the idle one plain text. */
+/* Layout: the two original pages fill the screen; the two tabs float over their bottom edge with no bar behind them.
+   The active tab is a small colour block, the idle one plain text tinted to read on the page underneath. */
 :root{
   --bar:#0a0d0c;              /* replaced at runtime with the visible page's own ground colour */
   --idle:rgba(255,255,255,.55);
+  --halo:rgba(0,0,0,.35);       /* soft glow behind idle text so it reads over busy content */
   --notes:#2aa955;            /* 笔记 green */
   --type:#c66a4a;             /* 打字机 clay */
   --on:#ffffff;
@@ -18,25 +19,25 @@
 :root[data-theme="dark"]{color-scheme:dark}
 html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bar);font-family:var(--sans)}
-.app{height:100%;display:flex;flex-direction:column}
-.views{position:relative;flex:1;min-height:0}
+.app{position:relative;height:100%}
+.views{position:absolute;inset:0}
 .views iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:transparent}
 .views iframe:not(.on){visibility:hidden;pointer-events:none}
-nav{flex:none;display:flex;background:var(--bar);transition:background .35s;
+nav{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;background:transparent;pointer-events:none;
   padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-nav button{flex:1;height:38px;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;
+nav button{flex:1;height:38px;pointer-events:auto;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;
   -webkit-tap-highlight-color:transparent}
 nav button span{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 14px;border-radius:999px;
-  color:var(--idle);font:500 13px var(--sans);letter-spacing:.04em;transition:background .25s,color .25s,transform .12s}
+  color:var(--idle);font:500 13px var(--sans);text-shadow:0 0 6px var(--halo);letter-spacing:.04em;transition:background .25s,color .25s,transform .12s}
 nav button:active span{transform:scale(.94)}
 nav button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-nav button[aria-selected="true"] span{color:var(--on);font-weight:700}
+nav button[aria-selected="true"] span{color:var(--on);font-weight:700;text-shadow:none}
 #tabNotes[aria-selected="true"] span{background:var(--notes)}
 #tabType[aria-selected="true"] span{background:var(--type)}
 nav button:focus-visible{outline:none}
 nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
-@media (prefers-reduced-motion:reduce){nav,nav button span{transition:none}}
+@media (prefers-reduced-motion:reduce){nav button span{transition:none}}
 </style>
 
 <div class="app">
@@ -78,7 +79,9 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
     root.style.setProperty('--bar',bg);
     var probe=document.createElement('i');probe.style.color=bg;document.body.appendChild(probe);
     var light=lum(getComputedStyle(probe).color)>.5;probe.remove();
-    root.style.setProperty('--idle',light?'rgba(20,24,22,.55)':'rgba(255,255,255,.55)');
+    if(current==='typewriter'){ light=false; }   // on the typewriter the tabs sit over the clay body, so ivory text reads best
+    root.style.setProperty('--idle',light?'rgba(20,24,22,.6)':current==='typewriter'?'rgba(255,246,232,.9)':'rgba(255,255,255,.65)');
+    root.style.setProperty('--halo',light?'rgba(255,255,255,.8)':current==='typewriter'?'rgba(70,28,12,.55)':'rgba(0,0,0,.45)');
   }
   // repaint when a page switches theme or the typewriter drifts into dusk
   function watch(frame){
