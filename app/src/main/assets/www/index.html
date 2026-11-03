@@ -20,9 +20,14 @@
 html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bar);font-family:var(--sans)}
 .app{position:relative;height:100%}
-.views{position:absolute;inset:0}
+.views{position:absolute;inset:0;overflow:hidden;background:var(--bar)}
 .views iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:transparent}
-.views iframe:not(.on){visibility:hidden;pointer-events:none}
+.views iframe:not(.on):not(.leaving){visibility:hidden;pointer-events:none}
+/* page change: both pages ride one rail. The incoming page pushes in from its side with a soft edge shadow,
+   the outgoing one recedes the other way, shrinking and dimming a little. Same timing as the liquid tab. */
+.views iframe.on{z-index:1}
+.views iframe.leaving{z-index:0;pointer-events:none}
+.views iframe.moving{will-change:transform,opacity;box-shadow:0 0 40px rgba(0,0,0,.28)}
 nav{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;background:transparent;pointer-events:none;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .2s;
   padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -155,12 +160,26 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
   }
   addEventListener('resize',function(){ place(current); });
 
+  var pageAnims=[];
+  function slide(outF,inF,dir){
+    pageAnims.forEach(function(a){a.cancel()}); pageAnims=[];
+    for(var k in tabs) tabs[k][1].classList.remove('leaving','moving');
+    if(RM||!inF.animate) return;
+    var ease='cubic-bezier(.65,0,.25,1)', dur=560;
+    outF.classList.add('leaving'); inF.classList.add('moving');
+    var a=inF.animate([{transform:'translateX('+dir*100+'%)',borderRadius:'28px'},{transform:'translateX(0)',borderRadius:'0px'}],{duration:dur,easing:ease});
+    var b=outF.animate([{transform:'translateX(0) scale(1)',opacity:1,borderRadius:'0px'},
+                        {transform:'translateX('+(-dir*22)+'%) scale(.92)',opacity:.45,borderRadius:'28px'}],{duration:dur,easing:ease});
+    a.onfinish=function(){ inF.classList.remove('moving'); outF.classList.remove('leaving'); };
+    pageAnims=[a,b];
+  }
   function show(name){
     if(!tabs[name]) name='notes';
     var prev=current, first=!blob.style.width;
     current=name;
     if(first||prev===name) place(name); else flow(prev,name);
     for(var k in tabs){var on=k===name;tabs[k][0].setAttribute('aria-selected',on);tabs[k][1].classList.toggle('on',on)}
+    if(!first&&prev!==name) slide(tabs[prev][1],tabs[name][1],name==='typewriter'?1:-1);
     paint();
     nav.classList.remove('away'); if(tabs[name][1]._sync) tabs[name][1]._sync();
     try{tabs[name][1].contentWindow.focus()}catch(e){}
