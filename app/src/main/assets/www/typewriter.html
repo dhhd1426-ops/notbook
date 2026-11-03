@@ -1089,7 +1089,7 @@ function updateMachine(now){
   setA(carB,'transform',`translate(${cx.toFixed(2)} 0)`);
   setA(carF,'transform',`translate(${cx.toFixed(2)} 0)`);
   setA(lever,'transform',`rotate(${leverA.toFixed(2)} 150 168)`);
-  setA(striker,'transform',`translate(${((headPos()-strikeX)/s).toFixed(2)} 0)`);
+  setA(striker,'transform',`translate(${(500+(headPos()-strikeX)/s).toFixed(2)} 0)`);   // 500 = its home at the centre, plus the offset to the current letter
   const moving=act&&(act.t==='nl'||act.t==='tab'||act.t==='feedIn');
   const rest=moving?.1:.42;
   const ts=now-strikeT0, down=100;
