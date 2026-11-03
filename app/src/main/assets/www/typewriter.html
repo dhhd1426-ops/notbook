@@ -15,9 +15,11 @@
   --chip-ink:#3a3129;
   --ui:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --label:"Barlow Condensed","Arial Narrow",sans-serif;
+  --sans-ui:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --sheet:#f6f1e7; --field:rgba(60,48,36,.07); --clay:#c66a4a;
   color-scheme:light;
 }
-:root.night{--chip:rgba(30,26,32,.62);--chip-line:rgba(255,214,160,.16);--chip-ink:#ecdcc4}
+:root.night{--chip:rgba(30,26,32,.62);--chip-line:rgba(255,214,160,.16);--chip-ink:#ecdcc4;--sheet:#221d22;--field:rgba(255,230,200,.08)}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(--chip-ink)}
 #stage{position:fixed;inset:0;overflow:hidden;
   background:radial-gradient(120% 90% at 62% 18%,#ded6c6 0%,var(--wall) 46%,var(--wall-deep) 100%);
@@ -63,6 +65,58 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
 #reader.on #rpage{transform:none}
 #reader .rhint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);text-align:center;
   font:500 11px/1 var(--ui);letter-spacing:.14em;color:rgba(255,246,232,.75);pointer-events:none}
+/* overflow menu (⋯): the less-used tools fold away here, in the same frosted chip as the round buttons */
+.tools{flex-wrap:nowrap;flex:none}   /* four round buttons always sit on one row */
+.more{position:relative}
+.menu{position:absolute;right:0;top:44px;min-width:184px;padding:6px;border-radius:18px;background:var(--chip);border:1px solid var(--chip-line);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 14px 34px rgba(40,28,16,.18);
+  display:flex;flex-direction:column;gap:2px;transform-origin:100% 0;animation:menuIn .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes menuIn{from{opacity:0;transform:scale(.92) translateY(-4px)}to{opacity:1;transform:none}}
+.tools .menu button{width:100%;height:42px;border-radius:12px;border:0;background:transparent;display:flex;align-items:center;justify-content:flex-start;
+  gap:12px;padding:0 12px;font:500 14px var(--sans-ui);letter-spacing:.02em;text-align:left;-webkit-backdrop-filter:none;backdrop-filter:none}
+.tools .menu button:hover,.tools .menu button:focus-visible{background:var(--chip-line);outline:none}
+.tools .menu button:active{transform:none;background:var(--chip-line)}
+.menu .tag{margin-left:auto;font:500 12px var(--ui);opacity:.6}
+.menu hr{border:0;height:6px;margin:0}
+/* model settings sheet */
+#ai{position:absolute;inset:0;z-index:9;display:grid;place-items:end center;background:rgba(36,28,22,.38);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:aiFade .2s ease}
+@keyframes aiFade{from{opacity:0}}
+#ai .sheet{width:100%;max-width:520px;max-height:calc(100% - env(safe-area-inset-top,0px) - 24px);overflow-y:auto;box-sizing:border-box;
+  background:var(--sheet);color:var(--chip-ink);border-radius:26px 26px 0 0;
+  padding-top:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px;animation:aiUp .32s cubic-bezier(.2,.85,.25,1);font-family:var(--sans-ui)}
+@media (min-width:600px){#ai{place-items:center}#ai .sheet{border-radius:26px}}
+@keyframes aiUp{from{transform:translateY(40px);opacity:.4}}
+#ai header{display:flex;align-items:center;gap:12px}
+#ai h2{margin:0;flex:1;font:700 19px/1.2 var(--sans-ui)}
+#ai h2 small{display:block;margin-top:4px;font:500 11px var(--ui);letter-spacing:.12em;opacity:.55}
+#ai .x{width:36px;height:36px;border-radius:50%;border:0;background:var(--field);color:inherit;display:grid;place-items:center;cursor:pointer}
+#ai .x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+#ai label{display:flex;flex-direction:column;gap:7px;font:600 13px var(--sans-ui)}
+#ai label > span{display:flex;justify-content:space-between;gap:8px}
+#ai label em{font:500 12px var(--ui);font-style:normal;opacity:.55}
+#ai input,#ai select,#ai textarea{width:100%;box-sizing:border-box;border:0;border-radius:14px;background:var(--field);color:inherit;
+  font:500 15px var(--sans-ui);padding:12px 14px;outline:none;-webkit-appearance:none;appearance:none}
+#ai textarea{min-height:132px;resize:vertical;line-height:1.6}
+#ai input:focus,#ai select:focus,#ai textarea:focus{box-shadow:0 0 0 2px var(--clay)}
+#ai .row{display:flex;gap:8px}
+#ai .row > *{min-width:0}
+#ai .eye{flex:none;width:46px;border:0;border-radius:14px;background:var(--field);color:inherit;cursor:pointer;display:grid;place-items:center}
+#ai .eye svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7}
+#ai input[type=range]{padding:0;height:28px;background:transparent;accent-color:var(--clay);-webkit-appearance:auto;appearance:auto;box-shadow:none}
+#ai .models{display:flex;gap:6px;flex-wrap:wrap}
+#ai .models button{flex:1;min-width:120px;height:44px;border:0;border-radius:14px;background:var(--field);color:inherit;font:600 13px var(--ui);cursor:pointer}
+#ai .models button[aria-pressed="true"]{background:var(--clay);color:#fff}
+#ai .note{margin:0;font:500 12px/1.6 var(--sans-ui);opacity:.62}
+#ai .msg{margin:0;min-height:20px;font:500 13px/1.5 var(--sans-ui)}
+#ai .msg.ok{color:#3f8a52} #ai .msg.err{color:#b4462c}
+#ai .acts{display:flex;gap:10px}
+#ai .acts button{flex:1;height:48px;border:0;border-radius:16px;font:700 15px var(--sans-ui);cursor:pointer}
+#ai .acts .ghost{background:var(--field);color:inherit}
+#ai .acts .solid{background:var(--clay);color:#fff}
+#ai .acts button:disabled{opacity:.5;cursor:default}
 #kbd{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;resize:none;z-index:-1}
 @media (prefers-reduced-motion:reduce){#sun svg{animation:none}}
 </style>
@@ -283,14 +337,62 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
       <button id="bType" aria-label="Type your own words" title="Type">
         <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M8 14h8"/></svg>
       </button>
-      <button id="bTear" aria-label="Pull out the sheet and load a blank one" title="New blank sheet">
-        <svg viewBox="0 0 24 24"><path d="M6 9v11h12V9"/><path d="M12 14V3M8.5 6.5L12 3l3.5 3.5"/></svg>
-      </button>
-      <button id="bReplay" aria-label="Type the note again" title="Type again">
-        <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>
-      </button>
-      <button id="bLang" aria-label="Switch language" title="中 / EN">中</button>
+      <div class="more">
+        <button id="bMore" aria-label="More" title="More" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4" style="fill:currentColor;stroke:none"/><circle cx="12" cy="12" r="1.4" style="fill:currentColor;stroke:none"/><circle cx="18.5" cy="12" r="1.4" style="fill:currentColor;stroke:none"/></svg>
+        </button>
+        <div class="menu" id="menu" role="menu" hidden>
+          <button id="bTear" role="menuitem">
+            <svg viewBox="0 0 24 24"><path d="M6 9v11h12V9"/><path d="M12 14V3M8.5 6.5L12 3l3.5 3.5"/></svg><span data-zh="换新纸" data-en="New sheet"></span>
+          </button>
+          <button id="bReplay" role="menuitem">
+            <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg><span data-zh="重打一遍" data-en="Type again"></span>
+          </button>
+          <button id="bLang" role="menuitem">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5M12 3.5C9.4 5.9 8.2 8.7 8.2 12s1.2 6.1 3.8 8.5"/></svg><span data-zh="中英文" data-en="Language"></span><b class="tag" id="bLangTag">中</b>
+          </button>
+          <hr>
+          <button id="bAI" role="menuitem">
+            <svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span data-zh="模型接入" data-en="AI model"></span><b class="tag" id="aiTag"></b>
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
+  <div id="ai" role="dialog" aria-modal="true" aria-labelledby="aiTitle" hidden>
+    <form class="sheet" id="aiForm" autocomplete="off">
+      <header>
+        <h2 id="aiTitle">模型接入<small>DEEPSEEK · 配置</small></h2>
+        <button type="button" class="x" id="aiClose" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <label for="aiKey"><span>API Key <em>只保存在本机</em></span>
+        <div class="row"><input id="aiKey" type="password" placeholder="sk-…" spellcheck="false" autocapitalize="off">
+        <button type="button" class="eye" id="aiEye" aria-label="显示或隐藏 Key"><svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      </label>
+      <label for="aiBase"><span>接口地址 <em>默认官方地址</em></span>
+        <input id="aiBase" type="url" placeholder="https://api.deepseek.com" spellcheck="false" autocapitalize="off">
+      </label>
+      <div class="field">
+        <label for="aiModel"><span>模型 <em id="aiModelNote"></em></span></label>
+        <div class="models" id="aiModels" style="margin-top:7px">
+          <button type="button" data-m="deepseek-chat">deepseek-chat</button>
+          <button type="button" data-m="deepseek-reasoner">deepseek-reasoner</button>
+        </div>
+        <input id="aiModel" type="text" spellcheck="false" autocapitalize="off" style="margin-top:8px" placeholder="或填写其他模型名">
+      </div>
+      <label for="aiTemp"><span>温度 <em id="aiTempV">1.0</em></span>
+        <input id="aiTemp" type="range" min="0" max="2" step="0.1" value="1">
+      </label>
+      <label for="aiSys"><span>系统提示词 <em id="aiSysN">0 字</em></span>
+        <textarea id="aiSys" spellcheck="false"></textarea>
+      </label>
+      <p class="msg" id="aiMsg" role="status"></p>
+      <div class="acts">
+        <button type="button" class="ghost" id="aiTest">测试连接</button>
+        <button type="submit" class="solid" id="aiSave">保存</button>
+      </div>
+      <p class="note">Key 和提示词只存在这台手机里，不会上传到别处。测试连接会向接口地址发送一条很短的消息。</p>
+    </form>
   </div>
   <div id="reader" role="dialog" aria-modal="true" aria-label="Full page" hidden>
     <div class="rscroll"><canvas id="rpage"></canvas></div>
@@ -697,11 +799,12 @@ kbd.addEventListener('input',e=>{
 kbd.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){e.preventDefault(); userNL();} });
 document.addEventListener('keydown',e=>{
   if(document.activeElement===kbd||e.metaKey||e.ctrlKey||e.altKey) return;
+  if(e.target.closest&&e.target.closest('#ai')) return;
   if(e.target.closest&&e.target.closest('button,[role=button]')&&(e.key===' '||e.key==='Enter')) return;
   if(e.key.length===1){ e.preventDefault(); feedText(e.key); kbd.focus({preventScroll:true}); }
   else if(e.key==='Enter'){ e.preventDefault(); userNL(); kbd.focus({preventScroll:true}); }
 });
-document.addEventListener('paste',e=>{ if(document.activeElement===kbd) return; const t=e.clipboardData&&e.clipboardData.getData('text'); if(t) feedText(t.slice(0,400)); });
+document.addEventListener('paste',e=>{ if(document.activeElement===kbd||(e.target.closest&&e.target.closest('#ai'))) return; const t=e.clipboardData&&e.clipboardData.getData('text'); if(t) feedText(t.slice(0,400)); });
 
 const ROWS=[
   {y:384,r:15,p:51,off:-6,keys:'1234567890-',L:null,R:null},
@@ -933,7 +1036,7 @@ function drawCharm(g){
   g.restore();
 }
 stage.addEventListener('pointerdown',e=>{
-  unlockAudio(); if(readerOpen) return;
+  unlockAudio(); if(readerOpen||(e.target.closest&&e.target.closest('#ai,.menu'))) return;
   const r=stage.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, b=bob(), k=s/0.45*.68;
   if(Math.hypot(x-b.x,y-(b.y+16*k))<34*k+8){ ch_.drag=true; suppressClick=true; ch_.lastT=performance.now(); ch_.lastTh=ch_.th; stage.setPointerCapture(e.pointerId); e.preventDefault(); }
 },true);
@@ -1047,10 +1150,83 @@ $('#bTear').addEventListener('click',()=>{ unlockAudio(); mode='await'; swapTo(s
 $('#bReplay').addEventListener('click',()=>{ unlockAudio(); mode='poem'; swapTo([...sheetSwap(false),{t:'ev',fn:()=>setNight(0,3000)},{t:'gap',ms:500},...poemQueue()]); });
 $('#bLang').addEventListener('click',()=>{
   lang=lang==='zh'?'en':'zh'; try{localStorage.setItem('pm80-lang',lang);}catch(e){}
-  $('#bLang').textContent=lang==='zh'?'中':'EN'; setHint();
+  $('#bLangTag').textContent=lang==='zh'?'中':'EN'; menuLabels(); setHint();
   M=metrics(); gcache=new Map(); textStartOff=startOff(); sheetH=textStartOff+M.lineH*36;
   mode='poem'; swapTo([...sheetSwap(false),{t:'ev',fn:()=>setNight(0,3000)},{t:'gap',ms:500},...poemQueue()]);
 });
+
+/* ---------------- overflow menu ---------------- */
+const menu=$('#menu'), bMore=$('#bMore');
+function menuLabels(){ menu.querySelectorAll('[data-zh]').forEach(el=>el.textContent=el.dataset[lang]||el.dataset.zh); }
+function openMenu(){ menu.hidden=false; bMore.setAttribute('aria-expanded','true'); }
+function closeMenu(){ menu.hidden=true; bMore.setAttribute('aria-expanded','false'); }
+bMore.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden?openMenu():closeMenu(); });
+menu.addEventListener('click',e=>{ if(e.target.closest('button')) closeMenu(); });
+document.addEventListener('pointerdown',e=>{ if(!menu.hidden&&!e.target.closest('.more')) closeMenu(); },true);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!menu.hidden){ closeMenu(); bMore.focus(); } });
+
+/* ---------------- model settings (DeepSeek) ---------------- */
+const AI_KEY='pm80-ai';
+const AI_DEFAULT={key:'',base:'https://api.deepseek.com',model:'deepseek-chat',temperature:1,
+  system:'你是一台住在复古打字机里的写作伙伴。回答要简短、有温度，像在纸上一个字一个字敲出来那样。只用纯文本，不要用 Markdown、列表或表情符号。中文提问用中文回答，英文提问用英文回答。'};
+function aiLoad(){ try{ return Object.assign({},AI_DEFAULT,JSON.parse(localStorage.getItem(AI_KEY)||'{}')); }catch(_){ return Object.assign({},AI_DEFAULT); } }
+// other code (and later features) read the saved settings from here
+window.pm80AI=()=>aiLoad();
+const ai=$('#ai'), aiF={key:$('#aiKey'),base:$('#aiBase'),model:$('#aiModel'),temp:$('#aiTemp'),sys:$('#aiSys')}, aiMsg=$('#aiMsg');
+const MODEL_NOTE={'deepseek-chat':'日常对话，速度快','deepseek-reasoner':'先思考再回答，较慢'};
+function aiTag(){ const c=aiLoad(); $('#aiTag').textContent=c.key?'已接入':''; }
+function syncModel(){ const m=aiF.model.value.trim();
+  $('#aiModels').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false'));
+  $('#aiModelNote').textContent=MODEL_NOTE[m]||(m?'自定义模型':''); }
+function syncTemp(){ $('#aiTempV').textContent=(+aiF.temp.value).toFixed(1); }
+function syncSys(){ $('#aiSysN').textContent=aiF.sys.value.length+' 字'; }
+function say(t,cls){ aiMsg.textContent=t; aiMsg.className='msg'+(cls?' '+cls:''); }
+function openAI(){
+  const c=aiLoad(); aiF.key.value=c.key; aiF.base.value=c.base; aiF.model.value=c.model; aiF.temp.value=c.temperature; aiF.sys.value=c.system;
+  aiF.key.type='password'; syncModel(); syncTemp(); syncSys(); say('');
+  if(document.activeElement===kbd) kbd.blur();
+  ai.hidden=false; setTimeout(()=>(c.key?aiF.sys:aiF.key).focus({preventScroll:true}),60);
+}
+function closeAI(){ ai.hidden=true; }
+function aiRead(){ return {key:aiF.key.value.trim(), base:(aiF.base.value.trim()||AI_DEFAULT.base).replace(/\/+$/,''),
+  model:aiF.model.value.trim()||AI_DEFAULT.model, temperature:+aiF.temp.value, system:aiF.sys.value}; }
+$('#bAI').addEventListener('click',openAI);
+$('#aiClose').addEventListener('click',closeAI);
+ai.addEventListener('pointerdown',e=>{ e.stopPropagation(); if(e.target===ai) closeAI(); });
+ai.addEventListener('pointerup',e=>e.stopPropagation());
+ai.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Escape') closeAI(); });
+$('#aiModels').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; aiF.model.value=b.dataset.m; syncModel(); });
+aiF.model.addEventListener('input',syncModel); aiF.temp.addEventListener('input',syncTemp); aiF.sys.addEventListener('input',syncSys);
+$('#aiEye').addEventListener('click',()=>{ aiF.key.type=aiF.key.type==='password'?'text':'password'; });
+$('#aiForm').addEventListener('submit',e=>{
+  e.preventDefault(); const c=aiRead();
+  try{ localStorage.setItem(AI_KEY,JSON.stringify(c)); }catch(_){ say('这台设备不允许保存设置。','err'); return; }
+  aiTag(); say(c.key?'已保存。':'已保存。还没有填写 API Key，模型暂时用不了。',c.key?'ok':'');
+  if(c.key) setTimeout(()=>{ if(!ai.hidden&&aiMsg.textContent==='已保存。') closeAI(); },700);
+});
+$('#aiTest').addEventListener('click',async()=>{
+  const c=aiRead(), btn=$('#aiTest');
+  if(!c.key){ say('先填写 API Key。','err'); aiF.key.focus(); return; }
+  btn.disabled=true; say('正在连接 '+c.model+' …');
+  const ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),20000);
+  try{
+    const r=await fetch(c.base+'/chat/completions',{method:'POST',signal:ctl.signal,
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      body:JSON.stringify({model:c.model,temperature:c.temperature,max_tokens:40,stream:false,
+        messages:[{role:'system',content:c.system},{role:'user',content:'用一句话打个招呼。'}]})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){
+      const m=(j.error&&j.error.message)||('HTTP '+r.status);
+      say(r.status===401?'API Key 不对，请检查后再试。':r.status===402?'账户余额不足，请到 DeepSeek 平台充值。':r.status===404?'找不到这个模型或接口地址，请检查。':'连接失败：'+m,'err');
+    }else{
+      const t=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').trim();
+      say('连接成功'+(t?'：'+t.slice(0,60):'。'),'ok');
+    }
+  }catch(err){
+    say(err.name==='AbortError'?'20 秒没有响应，请检查网络或接口地址。':'连不上接口。网页预览不允许联网，请在安装包里测试；如果已经在安装包里，请检查网络和接口地址。','err');
+  }finally{ clearTimeout(timer); btn.disabled=false; }
+});
+aiTag();
 
 /* ---------------- full-page reader ---------------- */
 const reader=$('#reader'), rpage=$('#rpage'), rscroll=reader.querySelector('.rscroll');
@@ -1119,12 +1295,12 @@ let kbdHeld=false;
 reader.addEventListener('pointerdown',e=>{ e.stopPropagation(); rTouch=true; kbdHeld=document.activeElement===kbd; });
 reader.addEventListener('mousedown',e=>e.preventDefault());   // a tap on the page must not take focus away from the typing field
 // same for the double-tap on the paper that opens the reader: the keyboard stays up and typing carries on
-stage.addEventListener('mousedown',e=>{ if(document.activeElement===kbd&&!e.target.closest('button,.k,#space,#lever,#reader')) e.preventDefault(); });
+stage.addEventListener('mousedown',e=>{ if(document.activeElement===kbd&&!e.target.closest('button,.k,#space,#lever,#reader,#ai,.menu')) e.preventDefault(); });
 reader.addEventListener('pointercancel',()=>{ rTouch=false; rTouchEnd=performance.now(); });
 reader.addEventListener('dblclick',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{ if(readerOpen&&e.key==='Escape'){ e.preventDefault(); closeReader(); } },true);
 
-$('#bLang').textContent=lang==='zh'?'中':'EN'; setHint();
+$('#bLangTag').textContent=lang==='zh'?'中':'EN'; menuLabels(); setHint();
 buildKeys(); wireKeys();
 let lastW=0,lastH=0;
 function onViewport(){
