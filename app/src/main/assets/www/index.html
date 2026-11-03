@@ -33,11 +33,15 @@ nav button span{display:inline-flex;align-items:center;gap:6px;height:30px;paddi
 nav button:active span{transform:scale(.94)}
 nav button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button[aria-selected="true"] span{color:var(--on);font-weight:700;text-shadow:none}
-#tabNotes[aria-selected="true"] span{background:var(--notes)}
-#tabType[aria-selected="true"] span{background:var(--type)}
+/* liquid indicator: one blob (plus a droplet) under a goo filter, so stretching and splitting look like a fluid */
+.goo{position:absolute;inset:0;pointer-events:none;filter:url(#goo)}
+.goo i{position:absolute;display:block;border-radius:999px;background:var(--notes);will-change:left,width,transform}
+.goo .drop{width:0;height:0;opacity:0}
+nav button{position:relative;z-index:1}
 nav button:focus-visible{outline:none}
 nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
 @media (prefers-reduced-motion:reduce){nav button span{transition:none}}
+.goo-defs{position:absolute;width:0;height:0}
 </style>
 
 <div class="app">
@@ -45,7 +49,13 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
     <iframe id="vNotes" class="on" src="notes.html" title="笔记"></iframe>
     <iframe id="vType" src="typewriter.html" title="打字机"></iframe>
   </div>
+  <svg class="goo-defs" aria-hidden="true"><filter id="goo" x="-20%" y="-60%" width="140%" height="220%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+    <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="g"/>
+    <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+  </filter></svg>
   <nav role="tablist" aria-label="切换页面">
+    <div class="goo" aria-hidden="true"><i class="blob" id="blob"></i><i class="drop" id="drop"></i></div>
     <button id="tabNotes" role="tab" aria-selected="true" aria-controls="vNotes"><span>
       <svg viewBox="0 0 24 24"><path d="M5 4.5h10.5a3 3 0 0 1 3 3V19.5H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10.5"/><path d="M9 8h6"/></svg>
       笔记</span>
@@ -93,9 +103,57 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
   }
   watch(vNotes); watch(vType);
 
+  // ---- liquid indicator ----
+  var nav=document.querySelector('nav'), COL={notes:'#2aa955',typewriter:'#c66a4a'};
+  var RM=matchMedia('(prefers-reduced-motion: reduce)').matches, anims=[];
+  function box(name){ var n=nav.getBoundingClientRect(), r=tabs[name][0].querySelector('span').getBoundingClientRect();
+    return {l:r.left-n.left, w:r.width, t:r.top-n.top, h:r.height}; }
+  function place(name){
+    var b=box(name); anims.forEach(function(a){a.cancel()}); anims=[];
+    Object.assign(blob.style,{left:b.l+'px',width:b.w+'px',top:b.t+'px',height:b.h+'px',background:COL[name],transform:''});
+  }
+  function flow(from,to){
+    var a=box(from), b=box(to);
+    if(RM||!blob.animate){ place(to); return; }
+    anims.forEach(function(x){x.cancel()}); anims=[];
+    var right=b.l>a.l, d=right?1:-1;
+    var L=Math.min(a.l,b.l), R=Math.max(a.l+a.w,b.l+b.w);
+    // leading edge races ahead and the blob thins as it stretches; the tail then catches up and the blob wobbles to rest
+    var k=[
+      {left:a.l+'px', width:a.w+'px', transform:'scaleY(1)', offset:0},
+      {left:(right?a.l:L)+'px', width:(R-L)*.62+'px', transform:'scaleY(.8)', offset:.28},
+      {left:(right?L+(R-L)*.38:L)+'px', width:(R-L)*.62+'px', transform:'scaleY(.7)', offset:.55},
+      {left:b.l+d*6+'px', width:b.w-4+'px', transform:'scaleY(1.12)', offset:.78},
+      {left:b.l-d*2+'px', width:b.w+2+'px', transform:'scaleY(.96)', offset:.9},
+      {left:b.l+'px', width:b.w+'px', transform:'scaleY(1)', offset:1}
+    ];
+    if(!right){ // mirror the middle frames so the left edge leads when flowing left
+      k[1].left=(R-(R-L)*.62)+'px'; k[2].left=L+'px';
+    }
+    Object.assign(blob.style,{top:b.t+'px',height:b.h+'px'});
+    var A=blob.animate(k,{duration:620,easing:'cubic-bezier(.55,0,.25,1)',fill:'forwards'});
+    A.onfinish=function(){ place(to); };
+    anims.push(A);
+    // green and clay are near-opposites, so a slow blend turns muddy; the colour flips quickly at full stretch instead
+    anims.push(blob.animate([{background:COL[from]},{background:COL[from],offset:.4},{background:COL[to],offset:.5},{background:COL[to]}],
+      {duration:620,fill:'forwards'}));
+    // a droplet pinches off the tail and is swallowed by the head
+    var cy=b.t+b.h/2, s=b.h*.62, x0=a.l+a.w/2, x1=b.l+b.w/2;
+    anims.push(drop.animate([
+      {left:x0-s/2+'px', top:cy-s/2+'px', width:s+'px', height:s+'px', opacity:1, offset:0},
+      {left:(x0*.4+x1*.6)-s*.35+'px', top:cy-s*.35+'px', width:s*.7+'px', height:s*.7+'px', opacity:1, offset:.6},
+      {left:x1-2+'px', top:cy-2+'px', width:'4px', height:'4px', opacity:0, offset:1}
+    ],{duration:700,delay:60,easing:'cubic-bezier(.4,0,.2,1)',fill:'both'}));
+    anims.push(drop.animate([{background:COL[from]},{background:COL[from],offset:.4},{background:COL[to],offset:.5},{background:COL[to]}],
+      {duration:620,fill:'forwards'}));
+  }
+  addEventListener('resize',function(){ place(current); });
+
   function show(name){
     if(!tabs[name]) name='notes';
+    var prev=current, first=!blob.style.width;
     current=name;
+    if(first||prev===name) place(name); else flow(prev,name);
     for(var k in tabs){var on=k===name;tabs[k][0].setAttribute('aria-selected',on);tabs[k][1].classList.toggle('on',on)}
     paint();
     try{tabs[name][1].contentWindow.focus()}catch(e){}
