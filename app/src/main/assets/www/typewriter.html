@@ -459,6 +459,7 @@ function strike(ch,g,x,base,red){
   const e=makeStrike(ch,g,x,base,red); strikes.push(e);
   sctx.setTransform(SS,0,0,SS,0,-bufOffset*SS);
   pressGlyph(sctx,e,GS);
+  if(readerOpen) readerStrike(e);
 }
 
 let emblem=null;
@@ -596,6 +597,7 @@ function startAct(a,now){
       sheetTop=F+(yClip-yPL)+6; hasSheet=true;
       sctx.setTransform(1,0,0,1,0,0); sctx.clearRect(0,0,sheet.width,sheet.height);
       bufOffset=sheetTop-60; strikes=[];
+      if(readerOpen){ renderReader(); rscroll.scrollTop=0; }
       a.F0=F; a.F1=sheetTop+textStartOff; a.x0=headX; a.dur=1300;
       sRoll(a.dur/1000); sZip(.5);
       break;}
@@ -677,7 +679,7 @@ function enterUser(){
   }
 }
 function feedText(str){
-  if(!str) return; if(readerOpen) closeReader(); unlockAudio(); enterUser(); hintOff();
+  if(!str) return; unlockAudio(); enterUser(); hintOff();
   if(document.fonts&&/[^\x00-\x7f]/.test(str)) document.fonts.load('700 15px "Noto Serif SC"',str).catch(()=>{});
   for(const ch of str){ if(ch==='\n'){queue.push({t:'nl'});continue;} queue.push({t:'char',ch}); queue.push({t:'gap',ms:10}); }
 }
@@ -1052,7 +1054,7 @@ $('#bLang').addEventListener('click',()=>{
 
 /* ---------------- full-page reader ---------------- */
 const reader=$('#reader'), rpage=$('#rpage'), rscroll=reader.querySelector('.rscroll');
-let readerOpen=false;
+let readerOpen=false, rState=null, rTouch=false, rTouchEnd=-1e9;
 function renderReader(){
   const avail=Math.min(W-32,680), k=avail/paperW, rd=Math.min(3,window.devicePixelRatio||1);
   const top=sheetTop, bottom=sheetTop+sheetH;
@@ -1069,6 +1071,7 @@ function renderReader(){
   c.setTransform(rd*k,0,0,rd*k,0,-top*rd*k);
   const gs=Math.min(14,Math.max(GS,Math.ceil(k*rd*1.25)));
   for(const e of strikes) pressGlyph(c,e,gs);
+  rState={c,gs,k,rd,top};
   return {k,cssH};
 }
 function openReader(){
@@ -1080,6 +1083,16 @@ function openReader(){
   rscroll.scrollTop=Math.max(0,lastY-rscroll.clientHeight*.6);
   requestAnimationFrame(()=>reader.classList.add('on'));
   sPull();
+}
+// press one new character onto the open page, and keep the line being typed in view unless the reader is being scrolled by hand
+function readerStrike(e){
+  if(!rState) return;
+  const {c,gs,k,rd,top}=rState;
+  c.setTransform(rd*k,0,0,rd*k,0,-top*rd*k);
+  pressGlyph(c,e,gs);
+  if(rTouch||performance.now()-rTouchEnd<1500) return;   // the reader was just scrolled by hand; leave it where it is
+  const y=(e.base-top)*k, h=rscroll.clientHeight;
+  if(y>rscroll.scrollTop+h-56||y<rscroll.scrollTop+24) rscroll.scrollTo({top:Math.max(0,y-h*.6),behavior:RM?'auto':'smooth'});
 }
 function closeReader(){
   if(!readerOpen) return;
@@ -1100,8 +1113,14 @@ function tapCheck(e,inReader){
   if(inReader) closeReader(); else if(onPaper(x,y)) openReader();
 }
 stage.addEventListener('pointerup',e=>{ if(readerOpen||ch_.drag) return; if(e.target.closest('button,.k,#space,#lever')) return; tapCheck(e,false); });
-reader.addEventListener('pointerup',e=>{ e.stopPropagation(); tapCheck(e,true); });
-reader.addEventListener('pointerdown',e=>e.stopPropagation());
+reader.addEventListener('pointerup',e=>{ e.stopPropagation(); rTouch=false; rTouchEnd=performance.now(); tapCheck(e,true);
+  if(kbdHeld&&document.activeElement!==kbd) kbd.focus({preventScroll:true}); });
+let kbdHeld=false;
+reader.addEventListener('pointerdown',e=>{ e.stopPropagation(); rTouch=true; kbdHeld=document.activeElement===kbd; });
+reader.addEventListener('mousedown',e=>e.preventDefault());   // a tap on the page must not take focus away from the typing field
+// same for the double-tap on the paper that opens the reader: the keyboard stays up and typing carries on
+stage.addEventListener('mousedown',e=>{ if(document.activeElement===kbd&&!e.target.closest('button,.k,#space,#lever,#reader')) e.preventDefault(); });
+reader.addEventListener('pointercancel',()=>{ rTouch=false; rTouchEnd=performance.now(); });
 reader.addEventListener('dblclick',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{ if(readerOpen&&e.key==='Escape'){ e.preventDefault(); closeReader(); } },true);
 
