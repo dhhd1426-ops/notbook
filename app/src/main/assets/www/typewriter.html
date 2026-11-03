@@ -112,11 +112,32 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
 #ai .note{margin:0;font:500 12px/1.6 var(--sans-ui);opacity:.62}
 #ai .msg{margin:0;min-height:20px;font:500 13px/1.5 var(--sans-ui)}
 #ai .msg.ok{color:#3f8a52} #ai .msg.err{color:#b4462c}
-#ai .acts{display:flex;gap:10px}
-#ai .acts button{flex:1;height:48px;border:0;border-radius:16px;font:700 15px var(--sans-ui);cursor:pointer}
-#ai .acts .ghost{background:var(--field);color:inherit}
-#ai .acts .solid{background:var(--clay);color:#fff}
-#ai .acts button:disabled{opacity:.5;cursor:default}
+/* save button: capsule -> spinning ball while connecting -> stretches back into a capsule with the result */
+#ai .acts{display:flex;justify-content:center}
+#ai .go{--ok:#3f8a52;--bad:#b4462c;position:relative;width:100%;height:50px;border:0;border-radius:25px;background:var(--clay);color:#fff;
+  font:700 15px var(--sans-ui);cursor:pointer;overflow:hidden;
+  transition:width .42s cubic-bezier(.65,0,.35,1),background .3s,transform .2s}
+#ai .go .lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:opacity .18s,transform .3s}
+#ai .go .lbl svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#ai .go .orb{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;transition:opacity .2s}
+#ai .go .orb i{position:absolute;left:50%;top:0;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 0 rgba(255,255,255,.4)}
+#ai .go[data-state="busy"]{width:50px;cursor:default}
+#ai .go[data-state="busy"] .lbl{opacity:0;transform:scale(.6)}
+#ai .go[data-state="busy"] .orb{opacity:1;animation:orbit .8s linear infinite}
+#ai .go[data-state="busy"] .orb i{animation:orbPulse .8s ease-in-out infinite}
+@keyframes orbit{to{transform:rotate(360deg)}}
+@keyframes orbPulse{50%{transform:scale(.7)}}
+#ai .go[data-state="ok"]{background:var(--ok)}
+#ai .go[data-state="err"]{background:var(--bad);animation:shake .42s .42s}
+#ai .go[data-state="ok"] .lbl,#ai .go[data-state="err"] .lbl{animation:lblIn .36s .3s both}
+@keyframes lblIn{from{opacity:0;transform:scale(.7)}}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+#ai .models .ph{flex:1;height:44px;border-radius:14px;background:var(--field);animation:ph 1s ease-in-out infinite alternate}
+@keyframes ph{to{opacity:.45}}
+#ai .models button{animation:chipIn .3s both}
+@keyframes chipIn{from{opacity:0;transform:translateY(6px)}}
+@media (prefers-reduced-motion:reduce){#ai .go,#ai .go .lbl,#ai .go .orb{transition:none}#ai .go .orb,#ai .go .orb i,#ai .go[data-state="err"]{animation:none}}
 #kbd{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;resize:none;z-index:-1}
 @media (prefers-reduced-motion:reduce){#sun svg{animation:none}}
 </style>
@@ -374,10 +395,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
       </label>
       <div class="field">
         <label for="aiModel"><span>模型 <em id="aiModelNote"></em></span></label>
-        <div class="models" id="aiModels" style="margin-top:7px">
-          <button type="button" data-m="deepseek-chat">deepseek-chat</button>
-          <button type="button" data-m="deepseek-reasoner">deepseek-reasoner</button>
-        </div>
+        <div class="models" id="aiModels" style="margin-top:7px"></div>
         <input id="aiModel" type="text" spellcheck="false" autocapitalize="off" style="margin-top:8px" placeholder="或填写其他模型名">
       </div>
       <label for="aiTemp"><span>温度 <em id="aiTempV">1.0</em></span>
@@ -388,10 +406,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
       </label>
       <p class="msg" id="aiMsg" role="status"></p>
       <div class="acts">
-        <button type="button" class="ghost" id="aiTest">测试连接</button>
-        <button type="submit" class="solid" id="aiSave">保存</button>
+        <button type="submit" class="go" id="aiSave" data-state="idle" aria-live="polite">
+          <span class="lbl" id="aiLbl">保存并连接</span>
+          <span class="orb" aria-hidden="true"><i></i></span>
+        </button>
       </div>
-      <p class="note">Key 和提示词只存在这台手机里，不会上传到别处。测试连接会向接口地址发送一条很短的消息。</p>
+      <p class="note">Key 和提示词只存在这台手机里。保存时会连接一次接口，确认 Key 可用，并取回这个账号能用的模型。</p>
     </form>
   </div>
   <div id="reader" role="dialog" aria-modal="true" aria-label="Full page" hidden>
@@ -1174,22 +1194,50 @@ function aiLoad(){ try{ return Object.assign({},AI_DEFAULT,JSON.parse(localStora
 window.pm80AI=()=>aiLoad();
 const ai=$('#ai'), aiF={key:$('#aiKey'),base:$('#aiBase'),model:$('#aiModel'),temp:$('#aiTemp'),sys:$('#aiSys')}, aiMsg=$('#aiMsg');
 const MODEL_NOTE={'deepseek-chat':'日常对话，速度快','deepseek-reasoner':'先思考再回答，较慢'};
-function aiTag(){ const c=aiLoad(); $('#aiTag').textContent=c.key?'已接入':''; }
+function aiTag(){ const c=aiLoad(); $('#aiTag').textContent=c.ok?'已接入':c.key?'未连接':''; }
+// model chips come from the account's own list once connected; the two DeepSeek defaults stand in until then
+function renderModels(list,sel){
+  const box=$('#aiModels'); box.innerHTML='';
+  (list&&list.length?list:['deepseek-chat','deepseek-reasoner']).forEach((m,i)=>{
+    const b=document.createElement('button'); b.type='button'; b.dataset.m=m; b.textContent=m; b.style.animationDelay=(i*40)+'ms'; box.appendChild(b); });
+  syncModel();
+}
 function syncModel(){ const m=aiF.model.value.trim();
   $('#aiModels').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false'));
-  $('#aiModelNote').textContent=MODEL_NOTE[m]||(m?'自定义模型':''); }
+  const listed=[...$('#aiModels').children].some(b=>b.dataset.m===m);
+  $('#aiModelNote').textContent=MODEL_NOTE[m]||(m&&!listed?'自定义模型':''); }
 function syncTemp(){ $('#aiTempV').textContent=(+aiF.temp.value).toFixed(1); }
 function syncSys(){ $('#aiSysN').textContent=aiF.sys.value.length+' 字'; }
 function say(t,cls){ aiMsg.textContent=t; aiMsg.className='msg'+(cls?' '+cls:''); }
 function openAI(){
   const c=aiLoad(); aiF.key.value=c.key; aiF.base.value=c.base; aiF.model.value=c.model; aiF.temp.value=c.temperature; aiF.sys.value=c.system;
-  aiF.key.type='password'; syncModel(); syncTemp(); syncSys(); say('');
+  aiF.key.type='password'; renderModels(c.models); syncTemp(); syncSys(); say(''); setBtn('idle');
   if(document.activeElement===kbd) kbd.blur();
   ai.hidden=false; setTimeout(()=>(c.key?aiF.sys:aiF.key).focus({preventScroll:true}),60);
 }
 function closeAI(){ ai.hidden=true; }
 function aiRead(){ return {key:aiF.key.value.trim(), base:(aiF.base.value.trim()||AI_DEFAULT.base).replace(/\/+$/,''),
   model:aiF.model.value.trim()||AI_DEFAULT.model, temperature:+aiF.temp.value, system:aiF.sys.value}; }
+const aiBtn=$('#aiSave'), aiLbl=$('#aiLbl');
+const ICON_OK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>', ICON_BAD='<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+function setBtn(state,text){
+  aiBtn.dataset.state=state; aiBtn.disabled=state==='busy';
+  aiLbl.innerHTML=state==='ok'?ICON_OK+'<span>'+(text||'连接成功')+'</span>':state==='err'?ICON_BAD+'<span>'+(text||'连接失败')+'</span>':'保存并连接';
+}
+// editing anything after a result puts the button back to its plain state
+['key','base','model','sys'].forEach(k=>aiF[k].addEventListener('input',()=>{ if(aiBtn.dataset.state!=='busy'&&aiBtn.dataset.state!=='idle') setBtn('idle'); }));
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function aiCall(c,path,init){
+  const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),20000);
+  try{ const r=await fetch(c.base+path,Object.assign({signal:ctl.signal},init,{headers:Object.assign({'Authorization':'Bearer '+c.key},init&&init.headers)}));
+    return {r, j:await r.json().catch(()=>({}))}; }
+  finally{ clearTimeout(t); }
+}
+function errText(r,j){
+  const m=(j&&j.error&&j.error.message)||('HTTP '+r.status);
+  return r.status===401?['Key 无效','API Key 不对，请检查后再试。']:r.status===402?['余额不足','账户余额不足，请到 DeepSeek 平台充值。']:
+    r.status===404?['地址不对','找不到这个接口，请检查接口地址。']:r.status===429?['请求太频繁','请求太频繁，稍等一会儿再试。']:['连接失败','连接失败：'+m];
+}
 $('#bAI').addEventListener('click',openAI);
 $('#aiClose').addEventListener('click',closeAI);
 ai.addEventListener('pointerdown',e=>{ e.stopPropagation(); if(e.target===ai) closeAI(); });
@@ -1198,33 +1246,44 @@ ai.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Escape') clo
 $('#aiModels').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; aiF.model.value=b.dataset.m; syncModel(); });
 aiF.model.addEventListener('input',syncModel); aiF.temp.addEventListener('input',syncTemp); aiF.sys.addEventListener('input',syncSys);
 $('#aiEye').addEventListener('click',()=>{ aiF.key.type=aiF.key.type==='password'?'text':'password'; });
-$('#aiForm').addEventListener('submit',e=>{
-  e.preventDefault(); const c=aiRead();
-  try{ localStorage.setItem(AI_KEY,JSON.stringify(c)); }catch(_){ say('这台设备不允许保存设置。','err'); return; }
-  aiTag(); say(c.key?'已保存。':'已保存。还没有填写 API Key，模型暂时用不了。',c.key?'ok':'');
-  if(c.key) setTimeout(()=>{ if(!ai.hidden&&aiMsg.textContent==='已保存。') closeAI(); },700);
-});
-$('#aiTest').addEventListener('click',async()=>{
-  const c=aiRead(), btn=$('#aiTest');
+$('#aiForm').addEventListener('submit',async e=>{
+  e.preventDefault(); if(aiBtn.dataset.state==='busy') return;
+  const c=aiRead();
   if(!c.key){ say('先填写 API Key。','err'); aiF.key.focus(); return; }
-  btn.disabled=true; say('正在连接 '+c.model+' …');
-  const ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),20000);
+  const save=extra=>{ try{ localStorage.setItem(AI_KEY,JSON.stringify(Object.assign(aiLoad(),c,extra))); return true; }catch(_){ return false; } };
+  if(!save({ok:false})){ say('这台设备不允许保存设置。','err'); return; }
+  aiTag(); say(''); setBtn('busy');
+  const t0=performance.now();
+  let out;
   try{
-    const r=await fetch(c.base+'/chat/completions',{method:'POST',signal:ctl.signal,
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
-      body:JSON.stringify({model:c.model,temperature:c.temperature,max_tokens:40,stream:false,
-        messages:[{role:'system',content:c.system},{role:'user',content:'用一句话打个招呼。'}]})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){
-      const m=(j.error&&j.error.message)||('HTTP '+r.status);
-      say(r.status===401?'API Key 不对，请检查后再试。':r.status===402?'账户余额不足，请到 DeepSeek 平台充值。':r.status===404?'找不到这个模型或接口地址，请检查。':'连接失败：'+m,'err');
-    }else{
-      const t=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').trim();
-      say('连接成功'+(t?'：'+t.slice(0,60):'。'),'ok');
-    }
+    // the model list doubles as the key check: it needs a valid key and costs nothing
+    const {r,j}=await aiCall(c,'/models',{method:'GET'});
+    if(r.ok&&j&&Array.isArray(j.data)){
+      const ids=j.data.map(m=>m&&m.id).filter(Boolean).sort();
+      out={ok:true,ids};
+    }else if(r.status===404||r.status===405){
+      // some compatible endpoints have no model list: fall back to one tiny chat call
+      const t=await aiCall(c,'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:c.model,max_tokens:1,messages:[{role:'user',content:'hi'}]})});
+      out=t.r.ok?{ok:true,ids:null}:{ok:false,e:errText(t.r,t.j)};
+    }else out={ok:false,e:errText(r,j)};
   }catch(err){
-    say(err.name==='AbortError'?'20 秒没有响应，请检查网络或接口地址。':'连不上接口。网页预览不允许联网，请在安装包里测试；如果已经在安装包里，请检查网络和接口地址。','err');
-  }finally{ clearTimeout(timer); btn.disabled=false; }
+    out={ok:false,e:err.name==='AbortError'?['没有响应','20 秒没有响应，请检查网络或接口地址。']:['连不上','连不上接口。网页预览不允许联网，请在安装包里试；已经在安装包里的话，请检查网络和接口地址。']};
+  }
+  const left=900-(performance.now()-t0); if(left>0) await wait(left);   // let the ball turn at least once
+  if(out.ok){
+    if(out.ids&&out.ids.length){
+      if(!out.ids.includes(c.model)){ c.model=out.ids.includes('deepseek-chat')?'deepseek-chat':out.ids[0]; aiF.model.value=c.model; }
+      renderModels(out.ids);
+    }
+    save({ok:true,models:out.ids||aiLoad().models||null,checked:Date.now()});
+    setBtn('ok','连接成功');
+    say(out.ids?'已取回 '+out.ids.length+' 个可用模型，当前使用 '+c.model+'。':'连接正常。这个接口不提供模型列表，继续使用 '+c.model+'。','ok');
+  }else{
+    setBtn('err',out.e[0]); say(out.e[1],'err');
+    setTimeout(()=>{ if(aiBtn.dataset.state==='err') setBtn('idle'); },2600);
+  }
+  aiTag();
 });
 aiTag();
 

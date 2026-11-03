@@ -23,9 +23,11 @@ body{background:var(--bar);font-family:var(--sans)}
 .views{position:absolute;inset:0}
 .views iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:transparent}
 .views iframe:not(.on){visibility:hidden;pointer-events:none}
-nav{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;background:transparent;pointer-events:none;
+nav{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;background:transparent;pointer-events:none;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .2s;
   padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.away{transform:translateY(110%);opacity:0}
+nav.away button{pointer-events:none!important}
 nav button{flex:1;height:38px;pointer-events:auto;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;
   -webkit-tap-highlight-color:transparent}
 nav button span{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 14px;border-radius:999px;
@@ -97,6 +99,10 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
   function watch(frame){
     frame.addEventListener('load',function(){
       try{ new MutationObserver(paint).observe(frame.contentDocument.documentElement,{attributes:true,attributeFilter:['class','data-theme']}); }catch(e){}
+      // a full-screen sheet inside a page (the typewriter's model settings) gets the whole screen: the tabs step aside while it is open
+      try{ var sheet=frame.contentDocument.getElementById('ai');
+        if(sheet){ var sync=function(){ nav.classList.toggle('away',!sheet.hidden&&frame.classList.contains('on')); };
+          new MutationObserver(sync).observe(sheet,{attributes:true,attributeFilter:['hidden']}); frame._sync=sync; } }catch(e){}
       try{ frame.contentWindow.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paint); }catch(e){}
       paint();
     });
@@ -156,6 +162,7 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
     if(first||prev===name) place(name); else flow(prev,name);
     for(var k in tabs){var on=k===name;tabs[k][0].setAttribute('aria-selected',on);tabs[k][1].classList.toggle('on',on)}
     paint();
+    nav.classList.remove('away'); if(tabs[name][1]._sync) tabs[name][1]._sync();
     try{tabs[name][1].contentWindow.focus()}catch(e){}
   }
   tabNotes.onclick=function(){show('notes')};
