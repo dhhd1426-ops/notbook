@@ -1,8 +1,7 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
+  # manual only: run it from the Actions tab when a version is ready to test
   workflow_dispatch:
 
 permissions:

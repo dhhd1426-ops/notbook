@@ -74,17 +74,8 @@ public class MainActivity extends Activity {
 
         setContentView(web);
 
-        if (savedInstanceState != null) {
-            web.restoreState(savedInstanceState);
-        } else {
-            web.loadUrl(START);
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        web.saveState(out);
+        // always start fresh on the home page (笔记)
+        web.loadUrl(START);
     }
 
     @Override

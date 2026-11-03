@@ -4,73 +4,103 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&display=swap">
 <style>
-/* Layout: two original pages stacked full-bleed; a frosted bottom bar switches between them with solid colour blocks, no lines or frames. */
+/* Layout: the two original pages stacked full-bleed; a slim bar under them takes the colour of whichever page is showing,
+   so it reads as the page's own floor. The active tab is a small colour block, the idle one plain text. */
 :root{
-  --bg:#f4f6f5;
-  --bar:rgba(255,255,255,.72);
-  --idle:rgba(18,23,20,.55);
-  --notes:#2aa955;      /* 笔记 green */
-  --type:#c66a4a;       /* 打字机 clay */
+  --bar:#0a0d0c;              /* replaced at runtime with the visible page's own ground colour */
+  --idle:rgba(255,255,255,.55);
+  --notes:#2aa955;            /* 笔记 green */
+  --type:#c66a4a;             /* 打字机 clay */
   --on:#ffffff;
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d100f;--bar:rgba(28,32,30,.72);--idle:rgba(255,255,255,.6);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0d100f;--bar:rgba(28,32,30,.72);--idle:rgba(255,255,255,.6);color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark}}
+:root[data-theme="dark"]{color-scheme:dark}
 html,body{height:100%;margin:0;overflow:hidden}
-body{background:var(--bg);font-family:var(--sans)}
+body{background:var(--bar);font-family:var(--sans)}
 .app{height:100%;display:flex;flex-direction:column}
 .views{position:relative;flex:1;min-height:0}
-.views iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:var(--bg)}
+.views iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:transparent}
 .views iframe:not(.on){visibility:hidden;pointer-events:none}
-nav{flex:none;display:flex;gap:10px;background:var(--bar);
-  -webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);
-  padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+nav{flex:none;display:flex;background:var(--bar);transition:background .35s;
+  padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-nav button{flex:1;height:52px;border:0;border-radius:18px;background:transparent;color:var(--idle);
-  display:flex;align-items:center;justify-content:center;gap:8px;font:500 15px var(--sans);cursor:pointer;
-  -webkit-tap-highlight-color:transparent;transition:background .25s,color .25s,transform .12s}
-nav button:active{transform:scale(.96)}
-nav button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-nav button[aria-selected="true"]{color:var(--on);font-weight:700}
-#tabNotes[aria-selected="true"]{background:var(--notes)}
-#tabType[aria-selected="true"]{background:var(--type)}
-nav button:focus-visible{outline:2px solid var(--idle);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){nav button{transition:none}}
+nav button{flex:1;height:38px;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+nav button span{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 14px;border-radius:999px;
+  color:var(--idle);font:500 13px var(--sans);letter-spacing:.04em;transition:background .25s,color .25s,transform .12s}
+nav button:active span{transform:scale(.94)}
+nav button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-selected="true"] span{color:var(--on);font-weight:700}
+#tabNotes[aria-selected="true"] span{background:var(--notes)}
+#tabType[aria-selected="true"] span{background:var(--type)}
+nav button:focus-visible{outline:none}
+nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
+@media (prefers-reduced-motion:reduce){nav,nav button span{transition:none}}
 </style>
 
 <div class="app">
   <div class="views">
     <iframe id="vNotes" class="on" src="notes.html" title="笔记"></iframe>
-    <iframe id="vType" src="typewriter.html" title="打字机" loading="eager"></iframe>
+    <iframe id="vType" src="typewriter.html" title="打字机"></iframe>
   </div>
   <nav role="tablist" aria-label="切换页面">
-    <button id="tabNotes" role="tab" aria-selected="true" aria-controls="vNotes">
+    <button id="tabNotes" role="tab" aria-selected="true" aria-controls="vNotes"><span>
       <svg viewBox="0 0 24 24"><path d="M5 4.5h10.5a3 3 0 0 1 3 3V19.5H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10.5"/><path d="M9 8h6"/></svg>
-      笔记
+      笔记</span>
     </button>
-    <button id="tabType" role="tab" aria-selected="false" aria-controls="vType">
+    <button id="tabType" role="tab" aria-selected="false" aria-controls="vType"><span>
       <svg viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="11" rx="3"/><path d="M7 13h.01M10.3 13h.01M13.7 13h.01M17 13h.01M8 16.5h8"/></svg>
-      打字机
+      打字机</span>
     </button>
   </nav>
 </div>
 
 <script>
 (function(){
+  var root=document.documentElement;
   var tabs={notes:[tabNotes,vNotes],typewriter:[tabType,vType]};
+  var current='notes';
+
+  // the bar wears the ground colour of the page above it, and picks light or dark idle text to suit
+  function lum(c){var m=c.match(/[\d.]+/g);if(!m||m.length<3)return 0;
+    return (0.2126*m[0]+0.7152*m[1]+0.0722*m[2])/255;}
+  function paint(){
+    var bg='';
+    try{
+      var d=tabs[current][1].contentDocument, r=d&&d.documentElement;
+      if(r){
+        if(current==='notes'){ bg=getComputedStyle(r).getPropertyValue('--pg2').trim(); }
+        else { bg=r.classList.contains('night')?'#2b2420':getComputedStyle(r).getPropertyValue('--wall-deep').trim(); }
+      }
+    }catch(e){}
+    if(!bg) bg=current==='notes'?'#0a0d0c':'#b3a892';
+    root.style.setProperty('--bar',bg);
+    var probe=document.createElement('i');probe.style.color=bg;document.body.appendChild(probe);
+    var light=lum(getComputedStyle(probe).color)>.5;probe.remove();
+    root.style.setProperty('--idle',light?'rgba(20,24,22,.55)':'rgba(255,255,255,.55)');
+  }
+  // repaint when a page switches theme or the typewriter drifts into dusk
+  function watch(frame){
+    frame.addEventListener('load',function(){
+      try{ new MutationObserver(paint).observe(frame.contentDocument.documentElement,{attributes:true,attributeFilter:['class','data-theme']}); }catch(e){}
+      try{ frame.contentWindow.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paint); }catch(e){}
+      paint();
+    });
+  }
+  watch(vNotes); watch(vType);
+
   function show(name){
     if(!tabs[name]) name='notes';
+    current=name;
     for(var k in tabs){var on=k===name;tabs[k][0].setAttribute('aria-selected',on);tabs[k][1].classList.toggle('on',on)}
+    paint();
     try{tabs[name][1].contentWindow.focus()}catch(e){}
-    try{localStorage.setItem('tab',name)}catch(e){}
   }
-  tabNotes.onclick=function(){location.hash='notes'};
-  tabType.onclick=function(){location.hash='typewriter'};
-  addEventListener('hashchange',function(){show(location.hash.slice(1))});
-  var start=location.hash.slice(1);
-  if(!tabs[start]){try{start=localStorage.getItem('tab')}catch(e){}}
-  show(start||'notes');
+  tabNotes.onclick=function(){show('notes')};
+  tabType.onclick=function(){show('typewriter')};
+  // the app always opens on 笔记
+  show('notes');
 })();
 </script>
-
 </body></html>

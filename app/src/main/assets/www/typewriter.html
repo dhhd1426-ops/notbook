@@ -51,6 +51,18 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
 .tools button:focus-visible{outline:2px solid #c47a1c;outline-offset:2px}
 .tools svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .tools button[aria-pressed="false"] .on,.tools button[aria-pressed="true"] .off{display:none}
+#reader{position:absolute;inset:0;z-index:8;background:rgba(36,28,22,.55);-webkit-backdrop-filter:blur(14px) saturate(120%);backdrop-filter:blur(14px) saturate(120%);
+  opacity:0;transition:opacity .32s ease}
+#reader.on{opacity:1}
+:root.night #reader{background:rgba(10,8,10,.72)}
+#reader .rscroll{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  padding-top:calc(env(safe-area-inset-top,0px) + 28px);padding-bottom:64px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+#rpage{display:block;margin:0 auto;border-radius:3px;box-shadow:0 2px 4px rgba(40,28,16,.18),0 22px 50px rgba(30,20,10,.35);
+  transform:translateY(24px) scale(.94);transform-origin:50% 0;transition:transform .42s cubic-bezier(.2,.8,.2,1)}
+#reader.on #rpage{transform:none}
+#reader .rhint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);text-align:center;
+  font:500 11px/1 var(--ui);letter-spacing:.14em;color:rgba(255,246,232,.75);pointer-events:none}
 #kbd{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;resize:none;z-index:-1}
 @media (prefers-reduced-motion:reduce){#sun svg{animation:none}}
 </style>
@@ -280,6 +292,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--wall);color:var(
       <button id="bLang" aria-label="Switch language" title="中 / EN">中</button>
     </div>
   </div>
+  <div id="reader" role="dialog" aria-modal="true" aria-label="Full page" hidden>
+    <div class="rscroll"><canvas id="rpage"></canvas></div>
+    <div class="rhint" id="rhint"></div>
+  </div>
   <textarea id="kbd" aria-label="Type text to print" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
 </div>
 
@@ -305,6 +321,7 @@ const POEM={
       "Now the window has gone blue. Leave the dishes. Stay a little longer; the typewriter and I will keep the lamp on for you."]
 };
 const PROMPT={zh:"（轮到你了。直接打字，我替你敲出来。）",en:"(your turn. type anything and I will strike it.)"};
+const RHINT={zh:'双击退出',en:'DOUBLE-TAP TO CLOSE'};
 const HINT={zh:"轻触开启声音 · 直接打字，或点键盘上的键",en:"tap for sound · type, or press the keys"};
 const STAT={ready:'READY',typing:'TYPING',ret:'RETURN',load:'LOADING SHEET'};
 let lang=(navigator.language||'').toLowerCase().startsWith('zh')?'zh':'en';
@@ -400,37 +417,48 @@ const grunge=document.createElement('canvas');
     g.beginPath(); g.moveTo(x,y); g.quadraticCurveTo(x+Math.cos(a+.4)*l*.5,y+Math.sin(a+.4)*l*.5,x+Math.cos(a)*l,y+Math.sin(a)*l); g.stroke(); }
 })();
 function sized(font,mul){ return font.replace(/([\d.]+)px/,(m,n)=>(parseFloat(n)*mul).toFixed(2)+'px'); }
-function strike(ch,g,x,base,red){
+/* every strike is logged with its random draws so the reader can re-press it at any resolution */
+let strikes=[];
+function makeStrike(ch,g,x,base,red){
   const R=Math.random;
-  let font=(g.wide&&lang==='en')?`700 ${M.fs*.95}px ${SERIF}`:(lang==='zh'&&!g.wide?`${M.fs*1.02}px ${TYPE}`:M.font);
-  const w=Math.ceil((g.adv+M.fs*.7)*GS), h=Math.ceil(M.fs*1.7*GS);
+  const font=(g.wide&&lang==='en')?`700 ${M.fs*.95}px ${SERIF}`:(lang==='zh'&&!g.wide?`${M.fs*1.02}px ${TYPE}`:M.font);
+  const heavy=/[.,;:!?。，、！？]/.test(ch)?1.06:1;
+  return {ch,adv:g.adv,font,fs:M.fs,red:!!red,zh:lang==='zh',
+    x:x+g.adv/2+(R()-.5)*.25, base:base+(R()-.5)*.45,
+    rot:(R()-.5)*.028, ox:(R()-.5)*.9/GS, oy:(R()-.5)*.6/GS,
+    gu:R(), gv:R(), ga:[R(),R()], p1:.68+R()*.32, p2:.68+R()*.32,
+    alpha:clamp(ribbon(x)*(.86+R()*.14)*heavy,.55,1)};
+}
+function pressGlyph(ctx,e,gs){
+  const k=gs/GS;                                         // grunge was drawn at GS px per css px
+  const w=Math.ceil((e.adv+e.fs*.7)*gs), h=Math.ceil(e.fs*1.7*gs);
   if(gcv.width<w||gcv.height<h){ gcv.width=Math.max(gcv.width,w); gcv.height=Math.max(gcv.height,h); }
-  const c=gctx; c.setTransform(1,0,0,1,0,0); c.globalCompositeOperation='source-over'; c.globalAlpha=1; c.clearRect(0,0,gcv.width,gcv.height);
+  const c=gctx; c.setTransform(1,0,0,1,0,0); c.globalCompositeOperation='source-over'; c.globalAlpha=1; c.clearRect(0,0,w+2,h+2);
   const bx=w/2, by=Math.round(h*.74);
-  c.font=sized(font,GS); c.textAlign='center'; c.textBaseline='alphabetic';
-  c.fillStyle=red?'rgb(150,30,34)':'rgb(27,23,26)';
-  c.save(); c.translate(bx,by); c.rotate((R()-.5)*.028);
-  c.fillText(ch,0,0);
-  c.globalAlpha=.5; c.fillText(ch,(R()-.5)*.9,(R()-.5)*.6);   // uneven squeeze of ink at the edges
+  c.font=sized(e.font,gs); c.textAlign='center'; c.textBaseline='alphabetic';
+  c.fillStyle=e.red?'rgb(150,30,34)':'rgb(27,23,26)';
+  c.save(); c.translate(bx,by); c.rotate(e.rot);
+  c.fillText(e.ch,0,0);
+  c.globalAlpha=.5; c.fillText(e.ch,e.ox*gs,e.oy*gs);
   c.restore(); c.globalAlpha=1;
-  // erosion: binary specks knock clean holes and notches into the strokes
   c.globalCompositeOperation='destination-out';
-  c.globalAlpha=lang==='zh'?1:.75;
-  c.drawImage(grunge,-R()*(grunge.width-w),-R()*(grunge.height-h));
+  c.globalAlpha=e.zh?1:.75;
+  const gw=grunge.width*k, gh=grunge.height*k;
+  c.drawImage(grunge,-e.gu*Math.max(0,gw-w),-e.gv*Math.max(0,gh-h),gw,gh);
   c.globalAlpha=1;
-  // pressure: one side of the slug lands harder
   c.globalCompositeOperation='destination-in';
-  const gr=c.createLinearGradient(R()*w,0,R()*w,h); gr.addColorStop(0,`rgba(0,0,0,${.68+R()*.32})`); gr.addColorStop(1,`rgba(0,0,0,${.68+R()*.32})`);
+  const gr=c.createLinearGradient(e.ga[0]*w,0,e.ga[1]*w,h); gr.addColorStop(0,`rgba(0,0,0,${e.p1})`); gr.addColorStop(1,`rgba(0,0,0,${e.p2})`);
   c.fillStyle=gr; c.fillRect(0,0,w,h);
   c.globalCompositeOperation='source-over';
-  // press onto the sheet
-  const heavy=/[.,;:!?。，、！？]/.test(ch)?1.06:1;
+  ctx.imageSmoothingQuality='high';
+  ctx.globalAlpha=e.alpha;
+  ctx.drawImage(gcv,0,0,w,h,e.x-w/gs/2,e.base-by/gs,w/gs,h/gs);
+  ctx.globalAlpha=1;
+}
+function strike(ch,g,x,base,red){
+  const e=makeStrike(ch,g,x,base,red); strikes.push(e);
   sctx.setTransform(SS,0,0,SS,0,-bufOffset*SS);
-  sctx.imageSmoothingQuality='high';
-  sctx.globalAlpha=clamp(ribbon(x)*(.86+R()*.14)*heavy,.55,1);
-  const cx=x+g.adv/2+(R()-.5)*.25, byd=base+(R()-.5)*.45;
-  sctx.drawImage(gcv,0,0,w,h,cx-w/GS/2,byd-by/GS,w/GS,h/GS);
-  sctx.globalAlpha=1;
+  pressGlyph(sctx,e,GS);
 }
 
 let emblem=null;
@@ -528,7 +556,7 @@ function resetAll(intro){
   emblemD=clamp(paperW*.22,54,112);
   textStartOff=startOff();
   sheetH=textStartOff+M.lineH*36;
-  buildEmblem(); makeSheetBuffer();
+  buildEmblem(); makeSheetBuffer(); strikes=[];
   sheetTop=0; hasSheet=true;
   F=textStartOff-(intro?M.lineH*2:0);
   bufOffset=Math.min(sheetTop-50,F-keepAbove);
@@ -567,7 +595,7 @@ function startAct(a,now){
     case 'feedIn':{
       sheetTop=F+(yClip-yPL)+6; hasSheet=true;
       sctx.setTransform(1,0,0,1,0,0); sctx.clearRect(0,0,sheet.width,sheet.height);
-      bufOffset=sheetTop-60;
+      bufOffset=sheetTop-60; strikes=[];
       a.F0=F; a.F1=sheetTop+textStartOff; a.x0=headX; a.dur=1300;
       sRoll(a.dur/1000); sZip(.5);
       break;}
@@ -649,7 +677,7 @@ function enterUser(){
   }
 }
 function feedText(str){
-  if(!str) return; unlockAudio(); enterUser(); hintOff();
+  if(!str) return; if(readerOpen) closeReader(); unlockAudio(); enterUser(); hintOff();
   if(document.fonts&&/[^\x00-\x7f]/.test(str)) document.fonts.load('700 15px "Noto Serif SC"',str).catch(()=>{});
   for(const ch of str){ if(ch==='\n'){queue.push({t:'nl'});continue;} queue.push({t:'char',ch}); queue.push({t:'gap',ms:10}); }
 }
@@ -903,7 +931,7 @@ function drawCharm(g){
   g.restore();
 }
 stage.addEventListener('pointerdown',e=>{
-  unlockAudio();
+  unlockAudio(); if(readerOpen) return;
   const r=stage.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, b=bob(), k=s/0.45*.68;
   if(Math.hypot(x-b.x,y-(b.y+16*k))<34*k+8){ ch_.drag=true; suppressClick=true; ch_.lastT=performance.now(); ch_.lastTh=ch_.th; stage.setPointerCapture(e.pointerId); e.preventDefault(); }
 },true);
@@ -1021,6 +1049,61 @@ $('#bLang').addEventListener('click',()=>{
   M=metrics(); gcache=new Map(); textStartOff=startOff(); sheetH=textStartOff+M.lineH*36;
   mode='poem'; swapTo([...sheetSwap(false),{t:'ev',fn:()=>setNight(0,3000)},{t:'gap',ms:500},...poemQueue()]);
 });
+
+/* ---------------- full-page reader ---------------- */
+const reader=$('#reader'), rpage=$('#rpage'), rscroll=reader.querySelector('.rscroll');
+let readerOpen=false;
+function renderReader(){
+  const avail=Math.min(W-32,680), k=avail/paperW, rd=Math.min(3,window.devicePixelRatio||1);
+  const top=sheetTop, bottom=sheetTop+sheetH;
+  const cssW=Math.round(paperW*k), cssH=Math.round((bottom-top)*k);
+  rpage.width=Math.round(cssW*rd); rpage.height=Math.round(cssH*rd);
+  rpage.style.width=cssW+'px'; rpage.style.height=cssH+'px';
+  const c=rpage.getContext('2d');
+  c.setTransform(rd,0,0,rd,0,0);
+  c.fillStyle='#f4eee2'; c.fillRect(0,0,cssW,cssH);
+  const pat=c.createPattern(tex,'repeat'); pat.setTransform(new DOMMatrix([k,0,0,k,0,0])); c.fillStyle=pat; c.fillRect(0,0,cssW,cssH);
+  let g=c.createLinearGradient(0,0,cssW,0);
+  g.addColorStop(0,'rgba(90,70,40,.08)'); g.addColorStop(.03,'rgba(90,70,40,0)'); g.addColorStop(.97,'rgba(90,70,40,0)'); g.addColorStop(1,'rgba(90,70,40,.08)');
+  c.fillStyle=g; c.fillRect(0,0,cssW,cssH);
+  c.setTransform(rd*k,0,0,rd*k,0,-top*rd*k);
+  const gs=Math.min(14,Math.max(GS,Math.ceil(k*rd*1.25)));
+  for(const e of strikes) pressGlyph(c,e,gs);
+  return {k,cssH};
+}
+function openReader(){
+  if(readerOpen||!hasSheet) return;
+  readerOpen=true; reader.hidden=false; $('#rhint').textContent=RHINT[lang];
+  const {k}=renderReader();
+  // start with the most recent lines in view
+  const lastY=(F-sheetTop)*k;
+  rscroll.scrollTop=Math.max(0,lastY-rscroll.clientHeight*.6);
+  requestAnimationFrame(()=>reader.classList.add('on'));
+  sPull();
+}
+function closeReader(){
+  if(!readerOpen) return;
+  readerOpen=false; reader.classList.remove('on');
+  setTimeout(()=>{ if(!readerOpen) reader.hidden=true; },330);
+}
+function onPaper(x,y){
+  if(!hasSheet) return false;
+  const pl=paperL0+carX(), top=Math.max(0,yPL+sheetTop-F);
+  return x>=pl&&x<=pl+paperW&&y>=top&&y<=yClip;
+}
+let lastTap={t:0,x:0,y:0};
+function tapCheck(e,inReader){
+  const now=performance.now(), r=stage.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  const dbl=now-lastTap.t<320&&Math.hypot(x-lastTap.x,y-lastTap.y)<40;
+  lastTap=dbl?{t:0,x:0,y:0}:{t:now,x,y};
+  if(!dbl) return;
+  if(inReader) closeReader(); else if(onPaper(x,y)) openReader();
+}
+stage.addEventListener('pointerup',e=>{ if(readerOpen||ch_.drag) return; if(e.target.closest('button,.k,#space,#lever')) return; tapCheck(e,false); });
+reader.addEventListener('pointerup',e=>{ e.stopPropagation(); tapCheck(e,true); });
+reader.addEventListener('pointerdown',e=>e.stopPropagation());
+reader.addEventListener('dblclick',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{ if(readerOpen&&e.key==='Escape'){ e.preventDefault(); closeReader(); } },true);
 
 $('#bLang').textContent=lang==='zh'?'中':'EN'; setHint();
 buildKeys(); wireKeys();
