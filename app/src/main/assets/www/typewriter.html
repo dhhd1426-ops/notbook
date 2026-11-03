@@ -445,7 +445,7 @@ const POEM={
 const PROMPT={zh:"（轮到你了。直接打字，我替你敲出来。）",en:"(your turn. type anything and I will strike it.)"};
 const RHINT={zh:'双击退出',en:'DOUBLE-TAP TO CLOSE'};
 const HINT={zh:"轻触开启声音 · 直接打字，或点键盘上的键",en:"tap for sound · type, or press the keys"};
-const STAT={ready:'READY',typing:'TYPING',ret:'RETURN',load:'LOADING SHEET'};
+const STAT={ready:'READY',typing:'TYPING',ret:'RETURN',load:'LOADING SHEET',think:'THINKING'};
 let lang=(navigator.language||'').toLowerCase().startsWith('zh')?'zh':'en';
 try{const l=localStorage.getItem('pm80-lang'); if(l==='zh'||l==='en') lang=l;}catch(e){}
 
@@ -794,6 +794,7 @@ function swapTo(seq){ queue=seq; act=null; leverA=0; }
 
 function enterUser(){
   if(mode!=='user'){
+    convoReset();
     queue=[];
     if(cursor>0) queue.push({t:'nl'});
     if(hasSheet) queue.push({t:'lf',n:1});
@@ -802,10 +803,15 @@ function enterUser(){
 }
 function feedText(str){
   if(!str) return; unlockAudio(); enterUser(); hintOff();
+  if(convo.streaming){ convo.held.push(str); return; }   // the reply is still being struck; your words follow right after it
+  if(convo.busy) convoAbort();                          // typing while it is still thinking means you have the floor again
+  convo.buf+=str; convo.nls=0;
   if(document.fonts&&/[^\x00-\x7f]/.test(str)) document.fonts.load('700 15px "Noto Serif SC"',str).catch(()=>{});
   for(const ch of str){ if(ch==='\n'){queue.push({t:'nl'});continue;} queue.push({t:'char',ch}); queue.push({t:'gap',ms:10}); }
 }
-function userNL(){ unlockAudio(); enterUser(); queue.push({t:'nl'}); }
+function userNL(){ unlockAudio(); enterUser();
+  if(convo.streaming){ convo.held.push('\n'); return; }
+  queue.push({t:'nl'}); convoNewline(); }
 let composing=false;
 kbd.addEventListener('compositionstart',()=>composing=true);
 kbd.addEventListener('compositionend',e=>{composing=false; feedText(e.data); kbd.value='';});
@@ -1157,6 +1163,7 @@ let statKey='';
 function updateStatus(){
   let k='ready';
   if(act&&act.t==='nl') k='ret'; else if(act&&(act.t==='feedIn'||act.t==='eject')) k='load'; else if(act||queue.length) k='typing';
+  else if(convo.busy) k='think';
   if(k!==statKey){statKey=k; $('#stat').textContent='NO.5 · '+STAT[k];}
 }
 
@@ -1174,6 +1181,85 @@ $('#bLang').addEventListener('click',()=>{
   M=metrics(); gcache=new Map(); textStartOff=startOff(); sheetH=textStartOff+M.lineH*36;
   mode='poem'; swapTo([...sheetSwap(false),{t:'ev',fn:()=>setNight(0,3000)},{t:'gap',ms:500},...poemQueue()]);
 });
+
+/* ---------------- conversation with the model ----------------
+   You type; a blank line (Enter twice) hands the turn over. The reply is struck on the same sheet in the same ink,
+   then another blank line hands it back. The current sheet is the context; a fresh sheet or a replay starts a new talk. */
+const convo={turns:[],buf:'',nls:0,busy:false,streaming:false,ctl:null,held:[],warned:false};
+function convoAbort(){ if(convo.ctl){ try{convo.ctl.abort();}catch(_){} } convo.ctl=null; convo.busy=false; convo.streaming=false; }
+function convoReset(){ convoAbort(); convo.turns=[]; convo.buf=''; convo.nls=0; convo.held=[]; }
+function flash(msg,ms){ const h=$('#hint'); h.textContent=msg; h.style.opacity=1; clearTimeout(flash.t);
+  flash.t=setTimeout(()=>{ h.style.opacity=0; setTimeout(setHint,700); },ms||4000); }
+function convoNewline(){
+  convo.nls++;
+  if(convo.nls>=2&&convo.buf.trim()) askModel();
+  else if(convo.nls===1) convo.buf+='\n';
+}
+// plain typewriter text only: drop markdown marks and squeeze blank lines (a blank line means "your turn")
+function plain(t){ return t.replace(/\r/g,'').replace(/```[a-z]*\n?/gi,'').replace(/[*_`#>]+/g,'').replace(/^\s*[-•]\s+/gm,'').replace(/\n{2,}/g,'\n'); }
+function strikeReply(t){ for(const ch of t){ if(ch==='\n'){ queue.push({t:'nl'}); continue; } queue.push({t:'char',ch}); queue.push({t:'gap',ms:38}); } }
+async function askModel(){
+  const said=convo.buf.trim(); convo.buf=''; convo.nls=0;
+  const cfg=aiLoad();
+  if(!cfg.key){
+    if(!convo.warned){ convo.warned=true; flash(lang==='zh'?'在右上角 ⋯ › 模型接入 填好 Key，空一行就会收到回复':'Add your key under ⋯ › AI model to get replies',6000); }
+    return;
+  }
+  convo.turns.push({role:'user',content:said});
+  convo.busy=true; convo.streaming=false; convo.held=[];
+  const ctl=new AbortController(); convo.ctl=ctl;
+  const mine=()=>convo.ctl===ctl;
+  let full='', carry='', lastNL=true;
+  const emit=piece=>{
+    if(!mine()) return;
+    let t=plain(carry+piece); carry='';
+    if(t.endsWith('\n')){ carry='\n'; t=t.slice(0,-1); }          // hold a trailing newline until we know it is not a blank line
+    if(lastNL) t=t.replace(/^\n+/,'');
+    if(!t) return;
+    if(!convo.streaming){ convo.streaming=true; }
+    strikeReply(t); full+=t; lastNL=t.endsWith('\n');
+  };
+  try{
+    const r=await fetch(cfg.base+'/chat/completions',{method:'POST',signal:ctl.signal,
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},
+      body:JSON.stringify({model:cfg.model,temperature:cfg.temperature,stream:true,
+        messages:[{role:'system',content:cfg.system},...convo.turns.slice(-24)]})});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw Object.assign(new Error('http'),{status:r.status,detail:j&&j.error&&j.error.message}); }
+    if(r.body&&r.body.getReader){
+      const rd=r.body.getReader(), dec=new TextDecoder(); let pend='';
+      for(;;){
+        const {value,done}=await rd.read(); if(done) break;
+        pend+=dec.decode(value,{stream:true});
+        const lines=pend.split('\n'); pend=lines.pop();
+        for(const ln of lines){
+          const m=ln.match(/^data:\s*(.*)$/); if(!m) continue;
+          if(m[1]==='[DONE]') break;
+          try{ const d=JSON.parse(m[1]).choices[0].delta; if(d&&d.content) emit(d.content); }catch(_){}
+        }
+      }
+    }else{
+      const j=await r.json(); emit(((j.choices||[])[0]||{}).message?.content||'');
+    }
+    if(!mine()) return;
+    if(full.trim()){
+      convo.turns.push({role:'assistant',content:full.trim()});
+      queue.push({t:'nl'},{t:'nl'});                       // blank line: your turn again
+    }else{ convo.turns.pop(); flash(lang==='zh'?'它没有说话，换个说法再试试':'No reply this time. Try again.'); }
+  }catch(err){
+    if(!mine()) return;
+    convo.turns.pop(); convo.buf=said;                     // give the words back so two more Enters retry
+    const st=err.status;
+    flash(lang==='zh'
+      ? (st===401?'Key 无效，请到 ⋯ › 模型接入 检查':st===402?'DeepSeek 余额不足':st===429?'请求太频繁，稍后再按两次回车重试':'没连上模型，再按两次回车重试')
+      : (st===401?'Invalid key, check ⋯ › AI model':st===402?'DeepSeek balance is empty':'Could not reach the model. Press Enter twice to retry.'),6000);
+  }finally{
+    if(mine()){
+      convo.busy=false; convo.streaming=false; convo.ctl=null;
+      const held=convo.held; convo.held=[];
+      for(const h of held){ if(h==='\n') userNL(); else feedText(h); }
+    }
+  }
+}
 
 /* ---------------- overflow menu ---------------- */
 const menu=$('#menu'), bMore=$('#bMore');
