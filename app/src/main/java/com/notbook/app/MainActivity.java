@@ -54,6 +54,11 @@ public class MainActivity extends Activity {
         web = new WebView(this);
         web.setBackgroundColor(0xFF0D100F);
         web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
+        web.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+        // keep the page's renderer at foreground priority so the system doesn't throttle it while the app is open
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
+        }
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);

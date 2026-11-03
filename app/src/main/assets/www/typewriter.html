@@ -1077,12 +1077,15 @@ stage.addEventListener('pointerup',endDrag); stage.addEventListener('pointercanc
 
 const stEls={stem:$('#stStem'),bar1:$('#stBar1'),bar2:$('#stBar2'),hi:$('#stHi')}, striker=$('#striker');
 striker.setAttribute('transform','translate(500 0)');
+// write an SVG attribute only when its value changes (each write costs a repaint)
+function setA(el,a,v){ v=String(v); const c=el.__a||(el.__a={}); if(c[a]!==v){ c[a]=v; el.setAttribute(a,v); } }
 function updateMachine(now){
   const cx=carX()/s;
-  for(const el of [svgB,svgF]) el.style.transform=`translate(${shake.x}px,${shake.y}px)`;
-  carB.setAttribute('transform',`translate(${cx} 0)`);
-  carF.setAttribute('transform',`translate(${cx} 0)`);
-  lever.setAttribute('transform',`rotate(${leverA} 150 168)`);
+  const sh=`translate(${Math.abs(shake.x)<.02?0:shake.x.toFixed(2)}px,${Math.abs(shake.y)<.02?0:shake.y.toFixed(2)}px)`;
+  if(sh!==updateMachine.sh){ updateMachine.sh=sh; for(const el of [svgB,svgF]) el.style.transform=sh; }
+  setA(carB,'transform',`translate(${cx.toFixed(2)} 0)`);
+  setA(carF,'transform',`translate(${cx.toFixed(2)} 0)`);
+  setA(lever,'transform',`rotate(${leverA.toFixed(2)} 150 168)`);
   const moving=act&&(act.t==='nl'||act.t==='tab'||act.t==='feedIn');
   const rest=moving?.1:.42;
   const ts=now-strikeT0, down=100;
@@ -1091,17 +1094,33 @@ function updateMachine(now){
   else if(ts<strikeUp+down){ const u=(ts-strikeUp)/down; target=lerp(1,rest,eout(u))-Math.sin(u*Math.PI)*.14; }
   stExt=(ts<strikeUp+down)?target:lerp(stExt,target,.18);
   const top=163-26*stExt;
-  stEls.bar1.setAttribute('y',top.toFixed(2)); stEls.hi.setAttribute('y',top.toFixed(2));
-  stEls.bar2.setAttribute('y',(top+5.2).toFixed(2));
-  stEls.stem.setAttribute('y',(top+8).toFixed(2)); stEls.stem.setAttribute('height',Math.max(2,206-(top+8)).toFixed(2));
+  setA(stEls.bar1,'y',top.toFixed(2)); setA(stEls.hi,'y',top.toFixed(2));
+  setA(stEls.bar2,'y',(top+5.2).toFixed(2));
+  setA(stEls.stem,'y',(top+8).toFixed(2)); setA(stEls.stem,'height',Math.max(2,206-(top+8)).toFixed(2));
   const R=36, phi=F/(M.lineH*2.4);
   knobEls.forEach(list=>list.forEach((el,i)=>{const a=phi+i/list.length*Math.PI*2; const c=Math.cos(a);
-    el.setAttribute('y',(141-R*Math.sin(a)-1.3).toFixed(2)); el.setAttribute('opacity',c>0?(.2+.65*c).toFixed(2):0);}));
-  bulb.setAttribute('fill',lampI>.05?`rgb(255,${200+lampI*40|0},${140+lampI*80|0})`:'#8b7a62');
+    setA(el,'y',(141-R*Math.sin(a)-1.3).toFixed(2)); setA(el,'opacity',c>0?(.2+.65*c).toFixed(2):0);}));
+  setA(bulb,'fill',lampI>.05?`rgb(255,${200+lampI*40|0},${140+lampI*80|0})`:'#8b7a62');
 }
 
 const sy=doc=>yPL+doc-F;
+const shadowSprite={k:'',cv:document.createElement('canvas'),P:48,w:0,h:0};
+function sheetHeight(top,bot){
+  const hh=Math.max(1,bot-top), k=paperW+'|'+hh.toFixed(2)+'|'+dpr, S=shadowSprite;
+  if(S.k!==k){
+    S.k=k; S.w=paperW+S.P*2; S.h=hh+S.P*2;
+    S.cv.width=Math.ceil(S.w*dpr); S.cv.height=Math.ceil(S.h*dpr);
+    const g=S.cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,S.w,S.h);
+    // identical to the old per-frame draw: shadow blur/offset are in device pixels and ignore the transform, as before
+    g.shadowColor='rgba(64,46,26,.26)'; g.shadowBlur=24; g.shadowOffsetY=5; g.fillStyle='#f4eee2';
+    g.beginPath(); if(g.roundRect) g.roundRect(S.P,S.P,paperW,hh,[3,3,2,2]); else g.rect(S.P,S.P,paperW,hh); g.fill();
+  }
+  return S;
+}
 function drawPaper(){
+  const key=F+'|'+carX()+'|'+hasSheet+'|'+sheetTop+'|'+sheetH+'|'+strikes.length+'|'+W+'|'+H+'|'+yPL+'|'+yClip+'|'+bufOffset+'|'+paperL0+'|'+paperW+'|'+dpr;
+  if(key===drawPaper.k){ drawPaper.n=(drawPaper.n||0)+1; if(drawPaper.n%120) return; }   // idle: nothing to repaint (plus a slow safety refresh)
+  drawPaper.k=key;
   const c=pctx; c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
   if(!hasSheet) return;
   const top=sy(sheetTop), bot=sy(sheetTop+sheetH);
@@ -1110,7 +1129,8 @@ function drawPaper(){
   if(y1<=y0) return;
   const path=()=>{c.beginPath(); if(c.roundRect) c.roundRect(pl,top,paperW,Math.max(1,bot-top),[3,3,2,2]); else c.rect(pl,top,paperW,bot-top);};
   c.save(); c.beginPath(); c.rect(0,-50,W,yClip+50); c.clip();
-  c.save(); c.shadowColor='rgba(64,46,26,.26)'; c.shadowBlur=24; c.shadowOffsetY=5; c.fillStyle='#f4eee2'; path(); c.fill(); c.restore();
+  // the sheet and its soft drop shadow are pre-rendered once per sheet size, then just placed each frame (blurring every frame was the costliest step)
+  const sh=sheetHeight(top,bot); c.drawImage(sh.cv,pl-sh.P,top-sh.P,sh.w,sh.h);
   c.save(); path(); c.clip();
   c.fillStyle='#f4eee2'; c.fillRect(pl,y0,paperW,y1-y0);
   if(!texPat) texPat=c.createPattern(tex,'repeat');
@@ -1130,15 +1150,42 @@ function drawPaper(){
   c.restore(); c.restore();
 }
 
+// the swinging mushroom lives on its own small canvas: when it moves, only that little square is redrawn and uploaded,
+// not a full-screen layer. It sits just under the dusk layer, exactly where it was drawn before.
+const charmC=document.createElement('canvas'); charmC.id='charmC'; charmC.setAttribute('aria-hidden','true');
+Object.assign(charmC.style,{position:'absolute',zIndex:5,pointerEvents:'none',left:'0',top:'0'});
+fx.parentNode.insertBefore(charmC,fx);
+const cctx=charmC.getContext('2d');
+let cBox=null;
+function drawCharmLayer(){
+  const lk=W+'|'+H+'|'+s+'|'+dpr;
+  if(!cBox||cBox.lk!==lk){
+    const k=s/0.45*.68, L=50*s, pad=L+40*k+14;                  // rope + cap + soft shadow + room for the jolt
+    const px=vx(810), py=vy(300);
+    cBox={lk,x:Math.floor(px-pad),y:Math.floor(py-16*k-14),w:Math.ceil(pad*2),h:Math.ceil(L+80*k+28)};
+    charmC.width=Math.ceil(cBox.w*dpr); charmC.height=Math.ceil(cBox.h*dpr);
+    Object.assign(charmC.style,{left:cBox.x+'px',top:cBox.y+'px',width:cBox.w+'px',height:cBox.h+'px'});
+    drawCharmLayer.k='';
+  }
+  const ck=ch_.th.toFixed(4)+'|'+shake.x.toFixed(2)+'|'+shake.y.toFixed(2)+'|'+lk;
+  if(ck===drawCharmLayer.k) return; drawCharmLayer.k=ck;
+  cctx.setTransform(dpr,0,0,dpr,-cBox.x*dpr,-cBox.y*dpr); cctx.clearRect(cBox.x,cBox.y,cBox.w,cBox.h);
+  drawCharm(cctx);
+}
 function drawFX(now){
-  const g=fctx; g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-  drawCharm(g);
+  drawCharmLayer();
   if(night>.32&&!lampOn){lampOn=true; lampT0=now; sClick(.6);}
   if(night<.25&&lampOn) lampOn=false;
   let li=lampOn?smooth(.3,.75,night):0;
   if(lampOn&&now-lampT0<700){const t=now-lampT0; li*=(t<90||(t>160&&t<230)||t>330)?1:.15;}
-  li*=.975+.025*Math.sin(now*.013)*Math.sin(now*.0047);
+  // the lamp's slow 2 Hz shimmer is sampled 15 times a second: it looks the same, at a quarter of the full-screen redraws
+  const tq=(lampOn&&now-lampT0>=700)?Math.floor(now/66)*66:now;
+  li*=.975+.025*Math.sin(tq*.013)*Math.sin(tq*.0047);
   lampI=li;
+  // the dusk layer only changes with the light level, the lamp, or where the striker is
+  const fk=night>.002?night.toFixed(3)+'|'+li.toFixed(3)+'|'+Math.round(strikeX)+'|'+W+'|'+H+'|'+dpr:'day|'+W+'|'+H+'|'+dpr;
+  if(fk===drawFX.k) return; drawFX.k=fk;
+  const g=fctx; g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
   const n=night, lx=strikeX, ly=vy(196);
   if(n>.002){
     if(dark.width!==fx.width||dark.height!==fx.height){dark.width=fx.width; dark.height=fx.height;}
@@ -1494,6 +1541,7 @@ window.addEventListener('resize',()=>{
 let last=performance.now();
 function frame(now){
   const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(window.__paused){ engine(now); updateNight(now); requestAnimationFrame(frame); return; }
   if(Math.abs(pT-pTt)>.1){ pT=lerp(pT,pTt,1-Math.pow(.0008,dt)); if(Math.abs(pT-pTt)<.1) pT=pTt; applyPT(); }
   engine(now); updateNight(now); physics(dt);
   drawPaper(); updateMachine(now); drawFX(now); updateStatus();

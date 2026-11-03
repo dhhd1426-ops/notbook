@@ -27,7 +27,7 @@ body{background:var(--bar);font-family:var(--sans)}
    the outgoing one recedes the other way, shrinking and dimming a little. Same timing as the liquid tab. */
 .views iframe.on{z-index:1}
 .views iframe.leaving{z-index:0;pointer-events:none}
-.views iframe.moving{will-change:transform,opacity;box-shadow:0 0 40px rgba(0,0,0,.28)}
+.views iframe.moving,.views iframe.leaving{will-change:transform,opacity}
 nav{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;background:transparent;pointer-events:none;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .2s;
   padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -109,6 +109,7 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
         if(sheet){ var sync=function(){ nav.classList.toggle('away',!sheet.hidden&&frame.classList.contains('on')); };
           new MutationObserver(sync).observe(sheet,{attributes:true,attributeFilter:['hidden']}); frame._sync=sync; } }catch(e){}
       try{ frame.contentWindow.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paint); }catch(e){}
+      setPaused(frame,!frame.classList.contains('on'));
       paint();
     });
   }
@@ -167,19 +168,23 @@ nav button:focus-visible span{box-shadow:0 0 0 2px var(--idle)}
     if(RM||!inF.animate) return;
     var ease='cubic-bezier(.65,0,.25,1)', dur=560;
     outF.classList.add('leaving'); inF.classList.add('moving');
-    var a=inF.animate([{transform:'translateX('+dir*100+'%)',borderRadius:'28px'},{transform:'translateX(0)',borderRadius:'0px'}],{duration:dur,easing:ease});
-    var b=outF.animate([{transform:'translateX(0) scale(1)',opacity:1,borderRadius:'0px'},
-                        {transform:'translateX('+(-dir*22)+'%) scale(.92)',opacity:.45,borderRadius:'28px'}],{duration:dur,easing:ease});
+    // transform + opacity only: both run on the GPU, so the slide never waits on page layout or painting
+    var a=inF.animate([{transform:'translate3d('+dir*100+'%,0,0)'},{transform:'translate3d(0,0,0)'}],{duration:dur,easing:ease});
+    var b=outF.animate([{transform:'translate3d(0,0,0) scale(1)',opacity:1},
+                        {transform:'translate3d('+(-dir*22)+'%,0,0) scale(.92)',opacity:.4}],{duration:dur,easing:ease});
     a.onfinish=function(){ inF.classList.remove('moving'); outF.classList.remove('leaving'); };
     pageAnims=[a,b];
   }
+  // only the page on screen draws; the other one sleeps (its typing and timers still run)
+  function setPaused(frame,v){ try{ frame.contentWindow.__paused=v; }catch(e){} }
   function show(name){
     if(!tabs[name]) name='notes';
     var prev=current, first=!blob.style.width;
     current=name;
     if(first||prev===name) place(name); else flow(prev,name);
     for(var k in tabs){var on=k===name;tabs[k][0].setAttribute('aria-selected',on);tabs[k][1].classList.toggle('on',on)}
-    if(!first&&prev!==name) slide(tabs[prev][1],tabs[name][1],name==='typewriter'?1:-1);
+    setPaused(tabs[name][1],false);
+    if(!first&&prev!==name){ var out=tabs[prev][1]; setPaused(out,true); slide(out,tabs[name][1],name==='typewriter'?1:-1); }
     paint();
     nav.classList.remove('away'); if(tabs[name][1]._sync) tabs[name][1]._sync();
     try{tabs[name][1].contentWindow.focus()}catch(e){}

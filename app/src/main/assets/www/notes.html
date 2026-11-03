@@ -448,6 +448,8 @@ function scale(){const w=stage.clientWidth; S=clamp(w/690,.95,1.8); halfW=w/2; s
 addEventListener('resize',scale); scale();
 
 const lift=new Array(N).fill(0), contact=document.getElementById('contact'); let hoverI=-1;
+// set a style only when its value changes: rewriting an unchanged inherited variable still restyles the whole book
+function sv(el,k,v){ const c=el.__sv||(el.__sv={}); if(c[k]!==v){ c[k]=v; el.style.setProperty(k,v); } }
 function render(){
   for(let i=0;i<N;i++){
     const d=i-pos, ad=Math.abs(d), sg=Math.sign(d), t=Math.min(ad,1), far=Math.max(ad-1,0), c=1-t;
@@ -455,17 +457,17 @@ function render(){
     const ry=-clamp(d*1.5,-1,1)*60-14;
     const el=els[i];
     lift[i]+=(((hoverI===i&&!dragging&&i!==active)?1:0)-lift[i])*(reduce?1:0.18);
-    el.style.transform=`translate3d(${x}px,${y-lift[i]*12}px,${z+lift[i]*14}px) rotateX(-6deg) rotateY(${ry+lift[i]*6}deg)`;
-    el.style.setProperty('--lo',clamp(1.45-ad*0.32,0,1).toFixed(3));
+    sv(el,'transform',`translate3d(${x.toFixed(2)}px,${(y-lift[i]*12).toFixed(2)}px,${(z+lift[i]*14).toFixed(2)}px) rotateX(-6deg) rotateY(${(ry+lift[i]*6).toFixed(2)}deg)`);
+    sv(el,'--lo',clamp(1.45-ad*0.32,0,1).toFixed(3));
     const op=clamp(1.3-far/7,0,1), off=Math.abs(x)*S>halfW+160;
-    el.style.visibility=(op<0.02||off)?'hidden':'visible';
+    sv(el,'visibility',(op<0.02||off)?'hidden':'visible');
     const lite=ad>1.6; if(el._lite!==lite){ el._lite=lite; el.classList.toggle('lite',lite); }
-    el.style.zIndex=1000-Math.round(ad*20);
-    el.style.opacity=op;
-    el.style.setProperty('--g',clamp(1-ad*1.6,0,1).toFixed(3));
+    sv(el,'z-index',String(1000-Math.round(ad*20)));
+    sv(el,'opacity',op.toFixed(3));
+    sv(el,'--g',clamp(1-ad*1.6,0,1).toFixed(3));
   }
   const settle=1-clamp(Math.abs(pos-Math.round(pos))*4,0,1);
-  contact.style.opacity=(0.35+settle*0.65).toFixed(3);
+  sv(contact,'opacity',(0.35+settle*0.65).toFixed(3));
   const a=clamp(Math.round(pos),0,N-1); if(a!==active) setActive(a);
 }
 
@@ -514,7 +516,15 @@ stage.addEventListener('keydown',e=>{
   else if(e.key==='Enter'||e.key===' '){openReader();e.preventDefault();}
   else if(e.key==='Home'){go(0)} else if(e.key==='End'){go(N-1)}});
 
-(function loop(){ if(!dragging){ pos += (target-pos)*(reduce?1:0.12); if(Math.abs(target-pos)<0.0005) pos=target; } render(); requestAnimationFrame(loop); })();
+// render only while something moves: the rail is gliding, a finger is on it, or something just happened (tap, key, resize, new book, theme)
+let lastPos=null, busy=60;
+['pointerdown','pointermove','pointerup','keydown','wheel','click','resize','input','transitionend','animationend'].forEach(ev=>addEventListener(ev,()=>{busy=60},{capture:true,passive:true}));
+try{ new MutationObserver(()=>{busy=60}).observe(document.body,{subtree:true,childList:true}); new MutationObserver(()=>{busy=60}).observe(document.documentElement,{attributes:true}); }catch(_){}
+(function loop(){
+  if(window.__paused){ requestAnimationFrame(loop); return; }
+  if(!dragging){ pos += (target-pos)*(reduce?1:0.12); if(Math.abs(target-pos)<0.0005) pos=target; }
+  if(dragging||pos!==lastPos||busy>0){ render(); lastPos=pos; if(busy>0) busy--; }
+  requestAnimationFrame(loop); })();
 
 // ---------- new notebook ----------
 const BOOKS_KEY='notes-carousel-books';
