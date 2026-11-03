@@ -474,7 +474,8 @@ function layout(){
   if(!pTinit){ pT=pTt; pTinit=true; }
   for(const el of [svgB,svgF]) Object.assign(el.style,{left:pL+'px',width:PW+'px',height:PH+'px'});
   applyPT();
-  paperW=600*s; paperL0=vx(500)-paperW/2;
+  // the paper is the whole face of the page: full width, and it reaches up past the top edge
+  paperW=W; paperL0=0;
   textL0=paperL0+paperW*.11; textR0=paperL0+paperW*.89;
   strikeX=vx(500);
   for(const c of [pc,fx]){c.width=Math.round(W*dpr); c.height=Math.round(H*dpr);}
@@ -622,6 +623,8 @@ let sheetTop=0, hasSheet=true, bellRung=false;
 let strikeT0=-1e9, strikeUp=30, stExt=.4, leverA=0;
 let night=0, nightTw={from:0,to:0,t0:0,dur:1}, lampOn=false, lampT0=0, lampI=0;
 const carX=()=>strikeX-headX-M.cell/2;
+// where the next letter lands on screen (the paper no longer slides, so the striker and lamp follow this point)
+const headPos=()=>headX+M.cell/2;
 function setNight(to,dur){nightTw={from:night,to,t0:performance.now(),dur:dur||4000}; $('#bNight').setAttribute('aria-pressed',to>.5?'true':'false');}
 
 function wrap(text){
@@ -773,7 +776,7 @@ function engine(now){
 
 function eject(){
   if(!hasSheet) return;
-  const top=yPL+sheetTop-F, x0=paperL0+carX()-6, w=paperW+12;
+  const top=Math.min(yPL+sheetTop-F,-60), x0=paperL0-6, w=paperW+12;
   const y0=Math.max(0,top-4), h=yClip+2-y0;
   if(h>10){
     const c=document.createElement('canvas'); c.width=Math.ceil(w*dpr); c.height=Math.ceil(h*dpr);
@@ -1080,12 +1083,13 @@ striker.setAttribute('transform','translate(500 0)');
 // write an SVG attribute only when its value changes (each write costs a repaint)
 function setA(el,a,v){ v=String(v); const c=el.__a||(el.__a={}); if(c[a]!==v){ c[a]=v; el.setAttribute(a,v); } }
 function updateMachine(now){
-  const cx=carX()/s;
+  const cx=0;
   const sh=`translate(${Math.abs(shake.x)<.02?0:shake.x.toFixed(2)}px,${Math.abs(shake.y)<.02?0:shake.y.toFixed(2)}px)`;
   if(sh!==updateMachine.sh){ updateMachine.sh=sh; for(const el of [svgB,svgF]) el.style.transform=sh; }
   setA(carB,'transform',`translate(${cx.toFixed(2)} 0)`);
   setA(carF,'transform',`translate(${cx.toFixed(2)} 0)`);
   setA(lever,'transform',`rotate(${leverA.toFixed(2)} 150 168)`);
+  setA(striker,'transform',`translate(${((headPos()-strikeX)/s).toFixed(2)} 0)`);
   const moving=act&&(act.t==='nl'||act.t==='tab'||act.t==='feedIn');
   const rest=moving?.1:.42;
   const ts=now-strikeT0, down=100;
@@ -1118,14 +1122,14 @@ function sheetHeight(top,bot){
   return S;
 }
 function drawPaper(){
-  const key=F+'|'+carX()+'|'+hasSheet+'|'+sheetTop+'|'+sheetH+'|'+strikes.length+'|'+W+'|'+H+'|'+yPL+'|'+yClip+'|'+bufOffset+'|'+paperL0+'|'+paperW+'|'+dpr;
+  const key=F+'|'+hasSheet+'|'+sheetTop+'|'+sheetH+'|'+strikes.length+'|'+W+'|'+H+'|'+yPL+'|'+yClip+'|'+bufOffset+'|'+paperL0+'|'+paperW+'|'+dpr;
   if(key===drawPaper.k){ drawPaper.n=(drawPaper.n||0)+1; if(drawPaper.n%120) return; }   // idle: nothing to repaint (plus a slow safety refresh)
   drawPaper.k=key;
   const c=pctx; c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
   if(!hasSheet) return;
-  const top=sy(sheetTop), bot=sy(sheetTop+sheetH);
+  const top=Math.min(sy(sheetTop),-60), bot=sy(sheetTop+sheetH);
   if(top>=yClip) return;
-  const pl=paperL0+carX(), y0=Math.max(-20,top), y1=Math.min(yClip,bot);
+  const pl=paperL0, y0=Math.max(-20,top), y1=Math.min(yClip,bot);
   if(y1<=y0) return;
   const path=()=>{c.beginPath(); if(c.roundRect) c.roundRect(pl,top,paperW,Math.max(1,bot-top),[3,3,2,2]); else c.rect(pl,top,paperW,bot-top);};
   c.save(); c.beginPath(); c.rect(0,-50,W,yClip+50); c.clip();
@@ -1140,9 +1144,7 @@ function drawPaper(){
   const docTop=F-(yPL-y0), docBot=F+(y1-yPL);
   const srcTop=Math.max(docTop,bufOffset), srcBot=Math.min(docBot,bufOffset+BH);
   if(srcBot>srcTop) c.drawImage(sheet,0,(srcTop-bufOffset)*SS,sheet.width,(srcBot-srcTop)*SS,pl,sy(srcTop),paperW,srcBot-srcTop);
-  let g=c.createLinearGradient(0,top,0,top+40); g.addColorStop(0,'rgba(255,255,255,.5)'); g.addColorStop(.25,'rgba(120,96,60,.06)'); g.addColorStop(1,'rgba(120,96,60,0)');
-  c.fillStyle=g; c.fillRect(pl,top,paperW,40);
-  g=c.createLinearGradient(0,yPL+4,0,yClip); g.addColorStop(0,'rgba(40,26,12,0)'); g.addColorStop(1,'rgba(40,26,12,.38)');
+  let g=c.createLinearGradient(0,yPL+4,0,yClip); g.addColorStop(0,'rgba(40,26,12,0)'); g.addColorStop(1,'rgba(40,26,12,.38)');
   c.fillStyle=g; c.fillRect(pl,yPL+4,paperW,yClip-yPL-4);
   g=c.createLinearGradient(pl,0,pl+paperW,0);
   g.addColorStop(0,'rgba(90,70,40,.1)'); g.addColorStop(.04,'rgba(90,70,40,0)'); g.addColorStop(.96,'rgba(90,70,40,0)'); g.addColorStop(1,'rgba(90,70,40,.1)');
@@ -1183,10 +1185,10 @@ function drawFX(now){
   li*=.975+.025*Math.sin(tq*.013)*Math.sin(tq*.0047);
   lampI=li;
   // the dusk layer only changes with the light level, the lamp, or where the striker is
-  const fk=night>.002?night.toFixed(3)+'|'+li.toFixed(3)+'|'+Math.round(strikeX)+'|'+W+'|'+H+'|'+dpr:'day|'+W+'|'+H+'|'+dpr;
+  const fk=night>.002?night.toFixed(3)+'|'+li.toFixed(3)+'|'+Math.round(headPos())+'|'+W+'|'+H+'|'+dpr:'day|'+W+'|'+H+'|'+dpr;
   if(fk===drawFX.k) return; drawFX.k=fk;
   const g=fctx; g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-  const n=night, lx=strikeX, ly=vy(196);
+  const n=night, lx=headPos(), ly=vy(196);
   if(n>.002){
     if(dark.width!==fx.width||dark.height!==fx.height){dark.width=fx.width; dark.height=fx.height;}
     const d=dctx; d.setTransform(dpr,0,0,dpr,0,0); d.globalCompositeOperation='source-over'; d.clearRect(0,0,W,H);
@@ -1197,7 +1199,7 @@ function drawFX(now){
     d.globalCompositeOperation='source-over';
     g.drawImage(dark,0,0,W,H);
     if(li>0){ g.globalCompositeOperation='lighter'; g.globalAlpha=li*.2; g.drawImage(lampWarm,lx-lw/2,ly-lh,lw,lh); g.globalAlpha=1;
-      const R=22*s/0.45, X=strikeX, Y=vy(190); const rg=g.createRadialGradient(X,Y,0,X,Y,R); rg.addColorStop(0,`rgba(255,210,150,${.7*li})`); rg.addColorStop(1,'rgba(255,190,120,0)'); g.fillStyle=rg; g.fillRect(X-R,Y-R,R*2,R*2);
+      const R=22*s/0.45, X=headPos(), Y=vy(190); const rg=g.createRadialGradient(X,Y,0,X,Y,R); rg.addColorStop(0,`rgba(255,210,150,${.7*li})`); rg.addColorStop(1,'rgba(255,190,120,0)'); g.fillStyle=rg; g.fillRect(X-R,Y-R,R*2,R*2);
       g.globalCompositeOperation='source-over'; }
   }
 }
@@ -1497,7 +1499,7 @@ function closeReader(){
 }
 function onPaper(x,y){
   if(!hasSheet) return false;
-  const pl=paperL0+carX(), top=Math.max(0,yPL+sheetTop-F);
+  const pl=paperL0, top=0;
   return x>=pl&&x<=pl+paperW&&y>=top&&y<=yClip;
 }
 let lastTap={t:0,x:0,y:0};
